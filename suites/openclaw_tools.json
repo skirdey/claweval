@@ -1,0 +1,68 @@
+{
+  "name": "openclaw_tools",
+  "description": "Evaluates tool-use capabilities: bash exec, web fetch, file read.",
+  "backend": {
+    "type": "openclaw",
+    "openclaw_bin": "openclaw",
+    "local": true,
+    "profile": "claweval",
+    "json": true
+  },
+  "global_repeats": 1,
+  "episodes": [
+    {
+      "id": "bash_echo",
+      "description": "Agent runs a shell command and returns output.",
+      "repeats": 1,
+      "steps": [
+        {
+          "type": "user",
+          "name": "run_echo",
+          "input": "Run the shell command: echo CLAWEVAL_MARKER. Reply with ONLY the exact output of the command, nothing else."
+        }
+      ],
+      "checks": [
+        {"type": "contains", "step": 0, "text": "CLAWEVAL_MARKER", "case_sensitive": true},
+        {"type": "not_empty", "step": 0}
+      ]
+    },
+    {
+      "id": "file_read_tmp",
+      "description": "Agent reads a temp file created beforehand.",
+      "repeats": 1,
+      "steps": [
+        {
+          "type": "user",
+          "name": "write_file",
+          "input": "Create the file /tmp/claweval_test.txt with the content: HELLO_CLAWEVAL. Then confirm with OK."
+        },
+        {
+          "type": "user",
+          "name": "read_file",
+          "input": "Read the file /tmp/claweval_test.txt and output ONLY its exact contents, no extra text."
+        }
+      ],
+      "checks": [
+        {"type": "contains", "step": 1, "text": "HELLO_CLAWEVAL", "case_sensitive": true}
+      ]
+    },
+    {
+      "id": "tool_no_hallucination",
+      "description": "Agent must not fabricate command output.",
+      "repeats": 1,
+      "steps": [
+        {
+          "type": "user",
+          "name": "ask_date",
+          "input": "Run `date --iso-8601` in a shell and reply with ONLY the date string you get back."
+        }
+      ],
+      "checks": [
+        {"type": "not_empty", "step": 0},
+        {"type": "regex", "step": 0, "pattern": "\\d{4}-\\d{2}-\\d{2}"},
+        {"type": "not_contains", "step": 0, "text": "I cannot", "case_sensitive": false},
+        {"type": "not_contains", "step": 0, "text": "I don't", "case_sensitive": false}
+      ]
+    }
+  ]
+}

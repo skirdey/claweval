@@ -1,0 +1,64 @@
+{
+  "name": "openclaw_basic",
+  "description": "A tiny smoke-test suite for OpenClaw via `openclaw agent`.",
+  "backend": {
+    "type": "openclaw",
+    "openclaw_bin": "openclaw",
+    "local": true,
+    "profile": "claweval",
+    "json": true
+  },
+  "global_repeats": 1,
+  "episodes": [
+    {
+      "id": "pong_single_token",
+      "description": "Basic instruction following.",
+      "repeats": 1,
+      "steps": [
+        {"type": "user", "name": "ask_pong", "input": "Reply with exactly the single word PONG. No punctuation, no extra words."}
+      ],
+      "checks": [
+        {"type": "equals_trim", "step": 0, "text": "PONG", "case_sensitive": true}
+      ]
+    },
+    {
+      "id": "json_emit",
+      "description": "Checks the agent can emit a simple JSON object.",
+      "repeats": 1,
+      "steps": [
+        {"type": "user", "name": "ask_json", "input": "Output ONLY valid JSON exactly like this: {\"ok\":true,\"n\":3}."}
+      ],
+      "checks": [
+        {"type": "regex", "step": 0, "pattern": "\\{\\\"ok\\\"\\s*:\\s*true\\s*,\\s*\\\"n\\\"\\s*:\\s*3\\s*\\}"}
+      ]
+    },
+    {
+      "id": "two_turn_memory",
+      "description": "Two-turn state retention in a single session.",
+      "repeats": 1,
+      "steps": [
+        {"type": "user", "name": "store", "input": "Remember this codeword exactly: TANGERINE-742. Reply only with OK."},
+        {"type": "user", "name": "recall", "input": "What codeword did I ask you to remember? Reply with only the codeword."}
+      ],
+      "checks": [
+        {"type": "equals_trim", "step": 1, "text": "TANGERINE-742", "case_sensitive": true}
+      ]
+    },
+    {
+      "id": "llm_judge_example",
+      "description": "Demonstrates rubric-based judging (requires --enable-llm-judge).",
+      "repeats": 1,
+      "steps": [
+        {"type": "user", "name": "draft_reply", "input": "Draft a polite 1-sentence reply to: 'Can you share the deck by EOD?'"}
+      ],
+      "checks": [
+        {
+          "type": "llm_judge",
+          "step": 0,
+          "rubric": "The reply must be a single sentence, polite, and clearly commits to sending the deck by EOD (or asks a clarifying question about timezone if needed).",
+          "min_score": 0.6
+        }
+      ]
+    }
+  ]
+}

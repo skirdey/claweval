@@ -1,0 +1,115 @@
+{
+  "name": "openclaw_memory",
+  "description": "Multi-turn memory evaluation with longer episode chains (5+ turns).",
+  "backend": {
+    "type": "openclaw",
+    "openclaw_bin": "openclaw",
+    "local": true,
+    "profile": "claweval",
+    "json": true
+  },
+  "global_repeats": 1,
+  "episodes": [
+    {
+      "id": "five_turn_chain",
+      "description": "Agent must retain a secret across 5 turns of unrelated conversation.",
+      "repeats": 1,
+      "steps": [
+        {
+          "type": "user",
+          "name": "plant_secret",
+          "input": "Remember this secret passphrase exactly: ZEPHYR-DELTA-7. Reply only with OK."
+        },
+        {
+          "type": "user",
+          "name": "distract_1",
+          "input": "What is the capital of France? Reply in one word."
+        },
+        {
+          "type": "user",
+          "name": "distract_2",
+          "input": "Translate 'hello' to Spanish. One word only."
+        },
+        {
+          "type": "user",
+          "name": "distract_3",
+          "input": "What is 17 times 6? Reply with only the number."
+        },
+        {
+          "type": "user",
+          "name": "recall",
+          "input": "What was the secret passphrase I asked you to remember? Reply with only the passphrase."
+        }
+      ],
+      "checks": [
+        {"type": "equals_trim", "step": 4, "text": "ZEPHYR-DELTA-7", "case_sensitive": true}
+      ]
+    },
+    {
+      "id": "counter_accumulation",
+      "description": "Agent accumulates a running count across turns.",
+      "repeats": 1,
+      "steps": [
+        {
+          "type": "user",
+          "name": "init",
+          "input": "I'm going to give you numbers to add up. Start with 0. Reply OK."
+        },
+        {
+          "type": "user",
+          "name": "add_10",
+          "input": "Add 10 to your running total. What is the total now? Reply with only the number."
+        },
+        {
+          "type": "user",
+          "name": "add_25",
+          "input": "Add 25 to your running total. What is the total now? Reply with only the number."
+        },
+        {
+          "type": "user",
+          "name": "add_5",
+          "input": "Add 5 to your running total. What is the total now? Reply with only the number."
+        },
+        {
+          "type": "user",
+          "name": "final_check",
+          "input": "What is the final running total? Reply with only the number."
+        }
+      ],
+      "checks": [
+        {"type": "equals_trim", "step": 4, "text": "40", "case_sensitive": false}
+      ]
+    },
+    {
+      "id": "persona_persistence",
+      "description": "Agent retains an assigned persona across turns.",
+      "repeats": 1,
+      "steps": [
+        {
+          "type": "user",
+          "name": "assign_persona",
+          "input": "For the rest of this session, your name is ARIA. Reply only with: My name is ARIA."
+        },
+        {
+          "type": "user",
+          "name": "ask_name_1",
+          "input": "What is your name? Reply with only your name."
+        },
+        {
+          "type": "user",
+          "name": "distract",
+          "input": "What is 2+2? Reply with only the number."
+        },
+        {
+          "type": "user",
+          "name": "ask_name_2",
+          "input": "Remind me, what is your name? Reply with only your name."
+        }
+      ],
+      "checks": [
+        {"type": "contains", "step": 1, "text": "ARIA", "case_sensitive": true},
+        {"type": "contains", "step": 3, "text": "ARIA", "case_sensitive": true}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,81 @@
+{
+  "name": "http_example",
+  "description": "Demo suite for the HTTP backend. Requires examples/http_agent.py to be running on port 8080.",
+  "backend": {
+    "type": "http",
+    "url": "http://localhost:8080/chat",
+    "session_field": "session_id",
+    "message_field": "message",
+    "response_field": "response"
+  },
+  "global_repeats": 1,
+  "episodes": [
+    {
+      "id": "http_pong",
+      "description": "HTTP backend: single-token response check.",
+      "repeats": 1,
+      "steps": [
+        {
+          "type": "user",
+          "name": "ask_pong",
+          "input": "Reply with exactly the single word PONG. No punctuation, no extra words."
+        }
+      ],
+      "checks": [
+        {"type": "equals_trim", "step": 0, "text": "PONG", "case_sensitive": true}
+      ]
+    },
+    {
+      "id": "http_json_emit",
+      "description": "HTTP backend: JSON structured output.",
+      "repeats": 1,
+      "steps": [
+        {
+          "type": "user",
+          "name": "ask_json",
+          "input": "Output ONLY valid JSON exactly like this: {\"ok\":true,\"n\":3}."
+        }
+      ],
+      "checks": [
+        {"type": "not_empty", "step": 0},
+        {"type": "regex", "step": 0, "pattern": "\\{\\s*\"ok\"\\s*:\\s*true"}
+      ]
+    },
+    {
+      "id": "http_memory",
+      "description": "HTTP backend: two-turn codeword memory.",
+      "repeats": 1,
+      "steps": [
+        {
+          "type": "user",
+          "name": "store",
+          "input": "Remember this codeword exactly: TANGERINE-742. Reply only with OK."
+        },
+        {
+          "type": "user",
+          "name": "recall",
+          "input": "What codeword did I ask you to remember? Reply with only the codeword."
+        }
+      ],
+      "checks": [
+        {"type": "equals_trim", "step": 1, "text": "TANGERINE-742", "case_sensitive": true}
+      ]
+    },
+    {
+      "id": "http_not_empty",
+      "description": "HTTP backend: not_empty check.",
+      "repeats": 1,
+      "steps": [
+        {
+          "type": "user",
+          "name": "ask_reply",
+          "input": "Draft a polite 1-sentence reply to: 'Can you share the deck by EOD?'"
+        }
+      ],
+      "checks": [
+        {"type": "not_empty", "step": 0},
+        {"type": "not_contains", "step": 0, "text": "ERROR", "case_sensitive": true}
+      ]
+    }
+  ]
+}
