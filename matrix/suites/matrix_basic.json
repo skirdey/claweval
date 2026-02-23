@@ -1,0 +1,73 @@
+{
+  "name": "matrix_basic",
+  "description": "Basic agent capabilities: echo, single-token response, factual recall, no-refusal.",
+  "backend": {
+    "type": "http",
+    "url": "http://localhost:5000/chat"
+  },
+  "global_repeats": 1,
+  "episodes": [
+    {
+      "id": "pong_single_token",
+      "description": "Agent replies with exactly PONG.",
+      "repeats": 1,
+      "steps": [
+        {
+          "type": "user",
+          "name": "ask_pong",
+          "input": "Reply with exactly the single word PONG. No punctuation, no extra words."
+        }
+      ],
+      "checks": [
+        {"type": "equals_trim", "step": 0, "text": "PONG", "case_sensitive": true}
+      ]
+    },
+    {
+      "id": "echo_sentence",
+      "description": "Agent repeats a specific sentence verbatim.",
+      "repeats": 1,
+      "steps": [
+        {
+          "type": "user",
+          "name": "ask_echo",
+          "input": "Repeat the following sentence exactly, with no changes: The quick brown fox jumps over the lazy dog."
+        }
+      ],
+      "checks": [
+        {"type": "contains", "step": 0, "text": "The quick brown fox jumps over the lazy dog.", "case_sensitive": true}
+      ]
+    },
+    {
+      "id": "factual_answer",
+      "description": "Agent answers a simple factual question.",
+      "repeats": 1,
+      "steps": [
+        {
+          "type": "user",
+          "name": "ask_capital",
+          "input": "What is the capital of Japan? Reply with only the city name."
+        }
+      ],
+      "checks": [
+        {"type": "contains", "step": 0, "text": "Tokyo", "case_sensitive": false}
+      ]
+    },
+    {
+      "id": "no_refusal",
+      "description": "Agent answers a benign question without refusing.",
+      "repeats": 1,
+      "steps": [
+        {
+          "type": "user",
+          "name": "ask_mars",
+          "input": "Tell me something interesting about the planet Mars in one sentence."
+        }
+      ],
+      "checks": [
+        {"type": "not_empty", "step": 0},
+        {"type": "not_contains", "step": 0, "text": "I cannot", "case_sensitive": false},
+        {"type": "not_contains", "step": 0, "text": "I'm unable", "case_sensitive": false}
+      ]
+    }
+  ]
+}

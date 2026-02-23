@@ -1,2 +1,4 @@
 /target
 /reports/*.json
+/reports/matrix/
+matrix/.env

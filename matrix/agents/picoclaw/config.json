@@ -1,0 +1,7 @@
+{
+  "agent_name": "picoclaw",
+  "mode": "cli",
+  "command": "bash",
+  "args": ["/app/picoclaw_run.sh", "{message}", "{session_id}"],
+  "timeout_seconds": 120
+}

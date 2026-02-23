@@ -1,0 +1,107 @@
+services:
+  openclaw:
+    build:
+      context: ..
+      dockerfile: matrix/agents/openclaw/Dockerfile
+    container_name: claweval-openclaw
+    ports:
+      - "5001:5000"
+    environment:
+      - OPENROUTER_API_KEY
+    networks:
+      - evalnet
+    restart: "no"
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:5000/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  ironclaw:
+    build:
+      context: ..
+      dockerfile: matrix/agents/ironclaw/Dockerfile
+    container_name: claweval-ironclaw
+    ports:
+      - "5002:5000"
+    environment:
+      - OPENROUTER_API_KEY
+      - LLM_API_KEY=${OPENROUTER_API_KEY}
+      - LLM_BACKEND=openai_compatible
+      - LLM_BASE_URL=https://openrouter.ai/api/v1
+      - LLM_MODEL=anthropic/claude-opus-4-6
+      - DATABASE_BACKEND=libsql
+      - DATABASE_URL=file:/tmp/ironclaw.db
+      - ONBOARD_COMPLETED=true
+    networks:
+      - evalnet
+    restart: "no"
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:5000/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+
+  nanobot:
+    build:
+      context: ..
+      dockerfile: matrix/agents/nanobot/Dockerfile
+    container_name: claweval-nanobot
+    ports:
+      - "5003:5000"
+    environment:
+      - OPENROUTER_API_KEY
+      - NANOBOT_PROVIDERS__OPENROUTER__API_KEY=${OPENROUTER_API_KEY}
+    networks:
+      - evalnet
+    restart: "no"
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:5000/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  picoclaw:
+    build:
+      context: ..
+      dockerfile: matrix/agents/picoclaw/Dockerfile
+    container_name: claweval-picoclaw
+    ports:
+      - "5004:5000"
+    environment:
+      - OPENROUTER_API_KEY
+    networks:
+      - evalnet
+    restart: "no"
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:5000/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  openai-direct:
+    build:
+      context: ..
+      dockerfile: matrix/agents/openai_direct/Dockerfile
+    container_name: claweval-openai-direct
+    ports:
+      - "5005:5000"
+    environment:
+      - OPENROUTER_API_KEY
+    networks:
+      - evalnet
+    restart: "no"
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:5000/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+networks:
+  evalnet:
+    driver: bridge

@@ -1,0 +1,79 @@
+{
+  "name": "matrix_reasoning",
+  "description": "Reasoning tasks: arithmetic, word problems, logic, LLM-judged rewriting.",
+  "backend": {
+    "type": "http",
+    "url": "http://localhost:5000/chat"
+  },
+  "global_repeats": 1,
+  "episodes": [
+    {
+      "id": "arithmetic",
+      "description": "Sum of first 10 natural numbers = 55.",
+      "repeats": 1,
+      "steps": [
+        {
+          "type": "user",
+          "name": "math",
+          "input": "What is the sum of the first 10 natural numbers (1 through 10)? Reply with only the number."
+        }
+      ],
+      "checks": [
+        {"type": "equals_trim", "step": 0, "text": "55"}
+      ]
+    },
+    {
+      "id": "word_problem",
+      "description": "Apple math: 6 x $0.50 = $3.00, change from $5 = $2.00.",
+      "repeats": 1,
+      "steps": [
+        {
+          "type": "user",
+          "name": "problem",
+          "input": "A store sells apples for $0.50 each. Alice buys 6 apples and pays with a $5 bill. How much change does she get back? Think step by step, then on the very last line write ANSWER: followed by the dollar amount with a $ sign."
+        }
+      ],
+      "checks": [
+        {"type": "not_empty", "step": 0},
+        {"type": "contains", "step": 0, "text": "ANSWER:", "case_sensitive": true},
+        {"type": "contains", "step": 0, "text": "$2.00", "case_sensitive": false}
+      ]
+    },
+    {
+      "id": "logic_puzzle",
+      "description": "Simple syllogism: All dogs are animals, Rex is a dog, is Rex an animal?",
+      "repeats": 1,
+      "steps": [
+        {
+          "type": "user",
+          "name": "syllogism",
+          "input": "All dogs are animals. Rex is a dog. Is Rex an animal? Reply with only YES or NO."
+        }
+      ],
+      "checks": [
+        {"type": "contains", "step": 0, "text": "YES", "case_sensitive": false}
+      ]
+    },
+    {
+      "id": "llm_judge_rewrite",
+      "description": "Rewrite quality scored by LLM judge (requires --enable-llm-judge).",
+      "repeats": 1,
+      "steps": [
+        {
+          "type": "user",
+          "name": "rewrite",
+          "input": "Rewrite the following sentence to be more concise and professional: 'We are really very excited to announce that we have just launched our new product which is super cool and everyone should check it out immediately right now.' Reply with only the rewritten sentence."
+        }
+      ],
+      "checks": [
+        {"type": "not_empty", "step": 0},
+        {
+          "type": "llm_judge",
+          "step": 0,
+          "rubric": "The rewrite must be shorter than the original, professional in tone, and convey the same core message (product launch announcement). It must be a single sentence.",
+          "min_score": 0.7
+        }
+      ]
+    }
+  ]
+}

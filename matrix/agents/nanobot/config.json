@@ -1,0 +1,7 @@
+{
+  "agent_name": "nanobot",
+  "mode": "cli",
+  "command": "bash",
+  "args": ["/app/nanobot_run.sh", "{message}", "{session_id}"],
+  "timeout_seconds": 120
+}

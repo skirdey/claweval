@@ -1,0 +1,12 @@
+{
+  "agent_name": "openclaw",
+  "mode": "cli",
+  "command": "openclaw",
+  "args": [
+    "agent",
+    "--local",
+    "--message", "{message}",
+    "--session-id", "{session_id}"
+  ],
+  "timeout_seconds": 120
+}

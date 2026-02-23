@@ -1,0 +1,7 @@
+{
+  "agent_name": "ironclaw",
+  "mode": "cli",
+  "command": "bash",
+  "args": ["/app/ironclaw_run.sh", "{message}"],
+  "timeout_seconds": 120
+}

@@ -3,7 +3,7 @@
   "description": "Runs the included examples/fake_agent.py via the generic command backend.",
   "backend": {
     "type": "command",
-    "command": "python3",
+    "command": "python",
     "args": ["examples/fake_agent.py", "--session", "{session}", "--message", "{message}"],
     "json": false
   },

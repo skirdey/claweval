@@ -1,0 +1,28 @@
+{
+  "onboard_completed": true,
+  "database_backend": "libsql",
+  "llm_backend": "openai_compatible",
+  "openai_compatible_base_url": "https://openrouter.ai/api/v1",
+  "selected_model": "anthropic/claude-opus-4-6",
+  "channels": {
+    "http_enabled": true,
+    "http_port": 4000,
+    "http_host": "0.0.0.0"
+  },
+  "agent": {
+    "auto_approve_tools": true,
+    "max_tool_iterations": 20
+  },
+  "sandbox": {
+    "enabled": false
+  },
+  "wasm": {
+    "enabled": false
+  },
+  "heartbeat": {
+    "enabled": false
+  },
+  "embeddings": {
+    "enabled": false
+  }
+}

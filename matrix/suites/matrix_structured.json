@@ -1,0 +1,72 @@
+{
+  "name": "matrix_structured",
+  "description": "Structured output: exact JSON, schema compliance, JSON arrays.",
+  "backend": {
+    "type": "http",
+    "url": "http://localhost:5000/chat"
+  },
+  "global_repeats": 1,
+  "episodes": [
+    {
+      "id": "json_exact",
+      "description": "Emit exact JSON object {\"ok\":true,\"n\":3}.",
+      "repeats": 1,
+      "steps": [
+        {
+          "type": "user",
+          "name": "ask_json",
+          "input": "Output ONLY valid JSON exactly like this: {\"ok\":true,\"n\":3}. No markdown, no explanation, just the JSON."
+        }
+      ],
+      "checks": [
+        {"type": "not_empty", "step": 0},
+        {"type": "regex", "step": 0, "pattern": "\\{\\s*\"ok\"\\s*:\\s*true\\s*,\\s*\"n\"\\s*:\\s*3\\s*\\}"}
+      ]
+    },
+    {
+      "id": "json_schema_compliance",
+      "description": "Emit JSON matching name/score/passed schema.",
+      "repeats": 1,
+      "steps": [
+        {
+          "type": "user",
+          "name": "ask_schema_json",
+          "input": "Output ONLY a JSON object with exactly these fields: name (string), score (number 0-100), passed (boolean). Use any plausible values. No markdown, no explanation, just the JSON."
+        }
+      ],
+      "checks": [
+        {"type": "not_empty", "step": 0},
+        {
+          "type": "json_schema",
+          "step": 0,
+          "schema": {
+            "type": "object",
+            "required": ["name", "score", "passed"],
+            "properties": {
+              "name":   {"type": "string"},
+              "score":  {"type": "number", "minimum": 0, "maximum": 100},
+              "passed": {"type": "boolean"}
+            },
+            "additionalProperties": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "json_array_output",
+      "description": "Emit a JSON array of 3 color objects.",
+      "repeats": 1,
+      "steps": [
+        {
+          "type": "user",
+          "name": "ask_array",
+          "input": "Output ONLY a JSON array containing exactly 3 objects, each with a \"color\" field (string) and a \"hex\" field (string starting with #). Example format: [{\"color\":\"red\",\"hex\":\"#ff0000\"},...]. No markdown, no explanation."
+        }
+      ],
+      "checks": [
+        {"type": "not_empty", "step": 0},
+        {"type": "regex", "step": 0, "pattern": "\\[\\s*\\{.*\"color\".*\"hex\".*\\}.*\\]"}
+      ]
+    }
+  ]
+}

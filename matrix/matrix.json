@@ -1,0 +1,55 @@
+{
+  "agents": [
+    {
+      "name": "openclaw",
+      "service": "openclaw",
+      "port": 5001,
+      "enabled": true,
+      "description": "OpenClaw CLI agent (Node.js)"
+    },
+    {
+      "name": "ironclaw",
+      "service": "ironclaw",
+      "port": 5002,
+      "enabled": true,
+      "description": "IronClaw Rust agent (nearai/ironclaw)"
+    },
+    {
+      "name": "nanobot",
+      "service": "nanobot",
+      "port": 5003,
+      "enabled": true,
+      "description": "Nanobot Python agent"
+    },
+    {
+      "name": "picoclaw",
+      "service": "picoclaw",
+      "port": 5004,
+      "enabled": true,
+      "description": "PicoClaw Go agent"
+    },
+    {
+      "name": "openai_direct",
+      "service": "openai-direct",
+      "port": 5005,
+      "enabled": true,
+      "description": "Raw LLM baseline via OpenRouter (no agent framework)"
+    }
+  ],
+  "suites": [
+    "matrix_basic.json",
+    "matrix_memory.json",
+    "matrix_reasoning.json",
+    "matrix_structured.json"
+  ],
+  "judge_backend": {
+    "type": "openai",
+    "base_url": "https://openrouter.ai/api/v1",
+    "model": "anthropic/claude-opus-4-6",
+    "api_key": "${OPENROUTER_API_KEY}"
+  },
+  "options": {
+    "health_check_timeout_seconds": 60,
+    "default_jobs": 1
+  }
+}
