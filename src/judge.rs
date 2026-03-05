@@ -1,4 +1,5 @@
 use crate::backend::{AgentBackend, SendRequest};
+use crate::util::parse_embedded_json;
 use anyhow::{anyhow, Result};
 use serde_json::Value;
 
@@ -15,22 +16,7 @@ fn parse_judge_json(text: &str) -> Option<JudgeResult> {
         return None;
     }
 
-    // Direct JSON
-    if let Ok(v) = serde_json::from_str::<Value>(s) {
-        return from_value(&v);
-    }
-
-    // Extract JSON substring
-    let first = s.find('{');
-    let last = s.rfind('}');
-    if let (Some(a), Some(b)) = (first, last) {
-        if b > a {
-            if let Ok(v) = serde_json::from_str::<Value>(&s[a..=b]) {
-                return from_value(&v);
-            }
-        }
-    }
-    None
+    parse_embedded_json(s).and_then(|v| from_value(&v))
 }
 
 fn from_value(v: &Value) -> Option<JudgeResult> {

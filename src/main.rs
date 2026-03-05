@@ -5,8 +5,14 @@ mod jsonschema;
 mod printer;
 mod report;
 mod runner;
+mod services;
 mod spec;
+mod sse_client;
 mod stats;
+mod types;
+mod util;
+mod vars;
+mod webhook_listener;
 
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
@@ -92,22 +98,18 @@ fn main() -> anyhow::Result<()> {
         } => {
             let mut suite_spec = spec::SuiteSpec::from_path(&suite)?;
 
-            // CLI overrides
-            if let Some(r) = repeats {
-                suite_spec.global_repeats = Some(r);
-            }
-            if let Some(bt) = backend {
-                suite_spec.backend.backend_type = bt;
-            }
-            if let Some(p) = profile {
-                suite_spec.backend.profile = Some(p);
-            }
-            if local {
-                suite_spec.backend.local = Some(true);
-            }
-            if let Some(bin) = openclaw {
-                suite_spec.backend.openclaw_bin = Some(bin);
-            }
+            let backend_type = backend
+                .map(|s| s.parse::<types::BackendType>())
+                .transpose()
+                .map_err(|e| anyhow::anyhow!(e))?;
+
+            suite_spec.apply_cli_overrides(spec::CliOverrides {
+                repeats,
+                backend_type,
+                openclaw_bin: openclaw,
+                local,
+                profile,
+            });
 
             let report = runner::run_suite(
                 &suite_spec,

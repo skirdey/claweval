@@ -4,7 +4,8 @@ pub mod openai;
 pub mod openclaw;
 
 use crate::spec::BackendSpec;
-use anyhow::{anyhow, Result};
+use crate::types::BackendType;
+use anyhow::Result;
 use serde_json::Value;
 use std::time::Duration;
 
@@ -25,7 +26,7 @@ pub struct SendResponse {
 }
 
 pub trait AgentBackend: Send + Sync {
-    fn name(&self) -> &str;
+    fn backend_type(&self) -> BackendType;
     fn send(&self, req: SendRequest) -> Result<SendResponse>;
 
     /// Optional: create a fresh session id (backend may have its own format).
@@ -35,14 +36,10 @@ pub trait AgentBackend: Send + Sync {
 }
 
 pub fn build_backend(spec: &BackendSpec) -> Result<Box<dyn AgentBackend>> {
-    match spec.backend_type.as_str() {
-        "openclaw" => Ok(Box::new(openclaw::OpenClawBackend::from_spec(spec)?)),
-        "command" => Ok(Box::new(command::CommandBackend::from_spec(spec)?)),
-        "http" => Ok(Box::new(http::HttpBackend::from_spec(spec)?)),
-        "openai" => Ok(Box::new(openai::OpenAIBackend::from_spec(spec)?)),
-        other => Err(anyhow!(
-            "unknown backend type '{}'. supported: openclaw|command|http|openai",
-            other
-        )),
+    match spec.backend_type {
+        BackendType::OpenClaw => Ok(Box::new(openclaw::OpenClawBackend::from_spec(spec)?)),
+        BackendType::Command => Ok(Box::new(command::CommandBackend::from_spec(spec)?)),
+        BackendType::Http => Ok(Box::new(http::HttpBackend::from_spec(spec)?)),
+        BackendType::OpenAI => Ok(Box::new(openai::OpenAIBackend::from_spec(spec)?)),
     }
 }

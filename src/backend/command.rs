@@ -1,10 +1,11 @@
 use crate::backend::{AgentBackend, SendRequest, SendResponse};
 use crate::spec::BackendSpec;
+use crate::types::BackendType;
+use crate::util::parse_embedded_json;
 use anyhow::{anyhow, Context, Result};
-use serde_json::Value;
 use std::collections::HashMap;
 use std::process::Command;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 #[derive(Debug, Clone)]
 pub struct CommandBackend {
@@ -34,30 +35,14 @@ impl CommandBackend {
             .replace("{message}", message)
     }
 
-    fn parse_json(stdout: &str) -> Option<Value> {
-        let s = stdout.trim();
-        if s.is_empty() {
-            return None;
-        }
-        if let Ok(v) = serde_json::from_str::<Value>(s) {
-            return Some(v);
-        }
-        let first_obj = s.find('{');
-        let last_obj = s.rfind('}');
-        if let (Some(a), Some(b)) = (first_obj, last_obj) {
-            if b > a {
-                if let Ok(v) = serde_json::from_str::<Value>(&s[a..=b]) {
-                    return Some(v);
-                }
-            }
-        }
-        None
+    fn parse_json(stdout: &str) -> Option<serde_json::Value> {
+        parse_embedded_json(stdout)
     }
 }
 
 impl AgentBackend for CommandBackend {
-    fn name(&self) -> &str {
-        "command"
+    fn backend_type(&self) -> BackendType {
+        BackendType::Command
     }
 
     fn send(&self, req: SendRequest) -> Result<SendResponse> {

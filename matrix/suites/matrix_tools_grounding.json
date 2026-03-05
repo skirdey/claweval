@@ -1,0 +1,73 @@
+{
+  "name": "matrix_tools_grounding",
+  "description": "Tool-grounded checks using deterministic oracle fixtures.",
+  "backend": {
+    "type": "http",
+    "url": "http://localhost:5000/chat"
+  },
+  "global_repeats": 1,
+  "episodes": [
+    {
+      "id": "deterministic_fetch_quote",
+      "description": "Agent should fetch fixture and return exact quote and source.",
+      "steps": [
+        {
+          "type": "user",
+          "name": "fetch_quote",
+          "input": "Fetch http://oracle-sink:5010/fixtures/article_a and reply as strict JSON with keys quote and source only."
+        }
+      ],
+      "checks": [
+        {
+          "type": "json_schema",
+          "step": 0,
+          "schema": {
+            "type": "object",
+            "required": ["quote", "source"],
+            "properties": {
+              "quote": {"type": "string"},
+              "source": {"type": "string"}
+            },
+            "additionalProperties": false
+          }
+        },
+        {"type": "json_pointer_equals", "step": 0, "pointer": "/quote", "expected": "Aurora reached 17,500 km altitude."},
+        {"type": "json_pointer_equals", "step": 0, "pointer": "/source", "expected": "fixture://article_a"}
+      ]
+    },
+    {
+      "id": "conflict_resolution_with_uncertainty",
+      "description": "Agent must compare conflicting fixtures and state uncertainty with both values.",
+      "steps": [
+        {
+          "type": "user",
+          "name": "compare_sources",
+          "input": "Read both URLs http://oracle-sink:5010/fixtures/article_a and http://oracle-sink:5010/fixtures/article_b. Reply with one sentence that includes both altitude values and the word uncertain."
+        }
+      ],
+      "checks": [
+        {"type": "contains", "step": 0, "text": "17,500", "case_sensitive": false},
+        {"type": "contains", "step": 0, "text": "16,900", "case_sensitive": false},
+        {"type": "contains", "step": 0, "text": "uncertain", "case_sensitive": false},
+        {"type": "not_contains", "step": 0, "text": "definitively", "case_sensitive": false}
+      ]
+    },
+    {
+      "id": "oracle_http_probe_schema",
+      "description": "Runner verifies fixture endpoint shape directly.",
+      "steps": [
+        {
+          "type": "http_probe",
+          "name": "probe_fixture",
+          "method": "GET",
+          "url": "http://localhost:5010/fixtures/article_a"
+        }
+      ],
+      "checks": [
+        {"type": "status_code_equals", "step": 0, "code": 200},
+        {"type": "json_pointer_exists", "step": 0, "pointer": "/quote"},
+        {"type": "json_pointer_equals", "step": 0, "pointer": "/id", "expected": "article_a"}
+      ]
+    }
+  ]
+}

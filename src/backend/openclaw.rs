@@ -1,9 +1,11 @@
 use crate::backend::{AgentBackend, SendRequest, SendResponse};
 use crate::spec::BackendSpec;
+use crate::types::BackendType;
 use anyhow::{anyhow, Context, Result};
+use crate::util::parse_embedded_json;
 use serde_json::Value;
 use std::process::Command;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 #[derive(Debug, Clone)]
 pub struct OpenClawBackend {
@@ -26,34 +28,7 @@ impl OpenClawBackend {
     }
 
     fn parse_json(stdout: &str) -> Option<Value> {
-        let s = stdout.trim();
-        if s.is_empty() {
-            return None;
-        }
-        if let Ok(v) = serde_json::from_str::<Value>(s) {
-            return Some(v);
-        }
-
-        // Heuristic: sometimes tools print extra logging. Try to extract the last JSON object/array.
-        let first_obj = s.find('{');
-        let last_obj = s.rfind('}');
-        if let (Some(a), Some(b)) = (first_obj, last_obj) {
-            if b > a {
-                if let Ok(v) = serde_json::from_str::<Value>(&s[a..=b]) {
-                    return Some(v);
-                }
-            }
-        }
-        let first_arr = s.find('[');
-        let last_arr = s.rfind(']');
-        if let (Some(a), Some(b)) = (first_arr, last_arr) {
-            if b > a {
-                if let Ok(v) = serde_json::from_str::<Value>(&s[a..=b]) {
-                    return Some(v);
-                }
-            }
-        }
-        None
+        parse_embedded_json(stdout)
     }
 
     fn extract_text(v: &Value) -> Option<String> {
@@ -102,8 +77,8 @@ impl OpenClawBackend {
 }
 
 impl AgentBackend for OpenClawBackend {
-    fn name(&self) -> &str {
-        "openclaw"
+    fn backend_type(&self) -> BackendType {
+        BackendType::OpenClaw
     }
 
     fn send(&self, req: SendRequest) -> Result<SendResponse> {

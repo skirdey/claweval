@@ -2,6 +2,8 @@
 
 Docker-based evaluation matrix that runs the same test suites against multiple agents for side-by-side comparison.
 
+This matrix now includes oracle-backed scenarios (via `oracle-sink` on port `5010`) so async/background behavior is validated by external evidence instead of assistant self-report.
+
 ## Architecture
 
 ```
@@ -61,6 +63,8 @@ python matrix/matrix_runner.py
 python matrix/matrix_runner.py --agents openclaw openai_direct --suites matrix_basic.json
 ```
 
+The runner starts configured global sidecars (including `oracle-sink`) automatically.
+
 ### 5. View results
 
 Reports are written to `reports/matrix/run_<timestamp>/`:
@@ -97,7 +101,7 @@ python matrix/matrix_runner.py --agents openai_direct --suites matrix_basic.json
 
 ## Results (2026-02-23)
 
-5 agents x 4 suites = 20 runs, 14 episodes per agent, all using `anthropic/claude-opus-4-6` via OpenRouter.
+5 agents x 4 suites = 20 runs, 14 episodes per agent, all using `qwen/qwen3.5-397b-a17b` via OpenRouter.
 
 ### Leaderboard
 
@@ -190,6 +194,16 @@ Raw JSON output compliance — can the agent emit valid, parseable structured da
 | **json_exact** | Emit an exact JSON object | Output `{"ok":true,"n":3}` | `regex` matching the exact shape |
 | **json_schema_compliance** | Emit JSON conforming to a schema | Output `{name, score, passed}` with correct types | `json_schema` validation against a Draft-7 schema |
 | **json_array_output** | Emit a JSON array of objects | Output 3 `{color, hex}` objects as a JSON array | `regex` matching array-of-objects pattern |
+
+### Additional Oracle/Stress Suites
+
+- `matrix_async_simulated`: async polling + timing windows + probe checks.
+- `matrix_tools_grounding`: deterministic fetch grounding and conflict handling.
+- `matrix_longhorizon_reliability`: longer memory chains under distractors.
+- `matrix_openclaw_scheduler`: delayed event scheduling/cancellation/context integrity.
+- `matrix_openclaw_browser`: stateful page handoff + dynamic wait races.
+- `matrix_openclaw_webfetch`: exact quote/source fidelity + disagreement handling.
+- `matrix_openclaw_skills`: skill dispatch marker, argument contract, recovery.
 
 ## Adding a New Agent
 

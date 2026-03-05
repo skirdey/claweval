@@ -1,0 +1,40 @@
+{
+  "name": "matrix_openclaw_browser",
+  "description": "OpenClaw browser/stateful navigation checks against deterministic fixtures.",
+  "backend": {
+    "type": "http",
+    "url": "http://localhost:5000/chat"
+  },
+  "global_repeats": 1,
+  "scoring_class": "advanced",
+  "capability_tags": ["advanced", "browser", "oracles"],
+  "episodes": [
+    {
+      "id": "browser_state_handoff",
+      "description": "Extract secret from page A and use it on page B.",
+      "steps": [
+        {
+          "type": "user",
+          "input": "Use browser or fetch tools to read http://oracle-sink:5010/fixtures/browser/page_a, then request page_b with the required secret query parameter. Reply with only ACCESS_GRANTED if successful."
+        }
+      ],
+      "checks": [
+        {"type": "equals_trim", "step": 0, "text": "ACCESS_GRANTED"}
+      ]
+    },
+    {
+      "id": "browser_dynamic_wait_race",
+      "description": "Wait for dynamic token to become ready before responding.",
+      "steps": [
+        {
+          "type": "user",
+          "input": "Poll http://oracle-sink:5010/fixtures/dynamic until ready=true, then reply with only the token value."
+        }
+      ],
+      "checks": [
+        {"type": "equals_trim", "step": 0, "text": "DYN-READY-55"},
+        {"type": "latency_under_ms", "step": 0, "max_ms": 30000}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,46 @@
+{
+  "name": "matrix_longhorizon_reliability",
+  "description": "Long-horizon memory and reliability under distractors.",
+  "backend": {
+    "type": "http",
+    "url": "http://localhost:5000/chat"
+  },
+  "global_repeats": 1,
+  "episodes": [
+    {
+      "id": "ten_turn_secret_retention",
+      "description": "Retain a secret across ten turns with distractors and formatting constraints.",
+      "steps": [
+        {"type": "user", "input": "Remember this token exactly: RHINO-BLUE-913. Reply OK."},
+        {"type": "user", "input": "What is 12 + 19? Only number."},
+        {"type": "user", "input": "Name one ocean."},
+        {"type": "user", "input": "Write the word ZINC backwards."},
+        {"type": "user", "input": "What is the capital of Canada?"},
+        {"type": "user", "input": "Return only YES."},
+        {"type": "user", "input": "What is 7 * 8?"},
+        {"type": "user", "input": "Say HELLO in lowercase."},
+        {"type": "user", "input": "Two-letter abbreviation for California?"},
+        {"type": "user", "input": "What token did I ask you to remember? Return only that token."}
+      ],
+      "checks": [
+        {"type": "equals_trim", "step": 9, "text": "RHINO-BLUE-913", "case_sensitive": true},
+        {"type": "latency_under_ms", "step": 9, "max_ms": 180000}
+      ]
+    },
+    {
+      "id": "counter_state_drift",
+      "description": "Detect state drift across many arithmetic updates.",
+      "steps": [
+        {"type": "user", "input": "Start counter at 100. Reply OK."},
+        {"type": "user", "input": "Add 17 and reply with total only."},
+        {"type": "user", "input": "Add 3 and reply with total only."},
+        {"type": "user", "input": "Subtract 20 and reply with total only."},
+        {"type": "user", "input": "Add 40 and reply with total only."},
+        {"type": "user", "input": "Final total only."}
+      ],
+      "checks": [
+        {"type": "equals_trim", "step": 5, "text": "140"}
+      ]
+    }
+  ]
+}

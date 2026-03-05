@@ -30,7 +30,7 @@ services:
       - LLM_API_KEY=${OPENROUTER_API_KEY}
       - LLM_BACKEND=openai_compatible
       - LLM_BASE_URL=https://openrouter.ai/api/v1
-      - LLM_MODEL=anthropic/claude-opus-4-6
+      - LLM_MODEL=qwen/qwen3.5-397b-a17b
       - DATABASE_BACKEND=libsql
       - DATABASE_URL=file:/tmp/ironclaw.db
       - ONBOARD_COMPLETED=true
@@ -101,6 +101,25 @@ services:
       timeout: 5s
       retries: 12
       start_period: 10s
+
+  oracle-sink:
+    image: python:3.11-slim
+    container_name: claweval-oracle-sink
+    working_dir: /app
+    command: ["python", "/app/matrix/mock_services/oracle_sink.py"]
+    volumes:
+      - ../:/app
+    ports:
+      - "5010:5010"
+    networks:
+      - evalnet
+    restart: "no"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5010/health', timeout=2).read()"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
 
 networks:
   evalnet:

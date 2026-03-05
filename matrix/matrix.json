@@ -40,16 +40,70 @@
     "matrix_basic.json",
     "matrix_memory.json",
     "matrix_reasoning.json",
-    "matrix_structured.json"
+    "matrix_structured.json",
+    "matrix_async_simulated.json",
+    "matrix_tools_grounding.json",
+    "matrix_longhorizon_reliability.json",
+    "matrix_openclaw_scheduler.json",
+    "matrix_openclaw_browser.json",
+    "matrix_openclaw_webfetch.json",
+    "matrix_openclaw_skills.json"
   ],
+  "suite_metadata": {
+    "matrix_basic": {
+      "capability_tags": ["core"],
+      "scoring_class": "core"
+    },
+    "matrix_memory": {
+      "capability_tags": ["core", "memory"],
+      "scoring_class": "core"
+    },
+    "matrix_reasoning": {
+      "capability_tags": ["core", "reasoning"],
+      "scoring_class": "core"
+    },
+    "matrix_structured": {
+      "capability_tags": ["core", "structured"],
+      "scoring_class": "core"
+    },
+    "matrix_async_simulated": {
+      "capability_tags": ["core", "async", "oracles"],
+      "scoring_class": "core"
+    },
+    "matrix_tools_grounding": {
+      "capability_tags": ["core", "tools", "oracles"],
+      "scoring_class": "core"
+    },
+    "matrix_longhorizon_reliability": {
+      "capability_tags": ["core", "memory", "stress"],
+      "scoring_class": "core"
+    },
+    "matrix_openclaw_scheduler": {
+      "capability_tags": ["advanced", "scheduler", "oracles"],
+      "scoring_class": "advanced"
+    },
+    "matrix_openclaw_browser": {
+      "capability_tags": ["advanced", "browser", "oracles"],
+      "scoring_class": "advanced"
+    },
+    "matrix_openclaw_webfetch": {
+      "capability_tags": ["advanced", "webfetch", "oracles"],
+      "scoring_class": "advanced"
+    },
+    "matrix_openclaw_skills": {
+      "capability_tags": ["advanced", "skills", "oracles"],
+      "scoring_class": "advanced"
+    }
+  },
   "judge_backend": {
     "type": "openai",
     "base_url": "https://openrouter.ai/api/v1",
-    "model": "anthropic/claude-opus-4-6",
+    "model": "qwen/qwen3.5-397b-a17b",
     "api_key": "${OPENROUTER_API_KEY}"
   },
   "options": {
     "health_check_timeout_seconds": 60,
-    "default_jobs": 1
+    "default_jobs": 1,
+    "global_sidecars": ["oracle-sink"]
   }
 }

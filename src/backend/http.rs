@@ -1,5 +1,7 @@
 use crate::backend::{AgentBackend, SendRequest, SendResponse};
 use crate::spec::BackendSpec;
+use crate::types::BackendType;
+use crate::util::{read_ureq_response, UreqRead};
 use anyhow::{anyhow, Context, Result};
 use std::collections::HashMap;
 use std::time::Instant;
@@ -10,6 +12,8 @@ pub struct HttpBackend {
     pub message_field: String,
     pub response_field: String,
     pub headers: HashMap<String, String>,
+    /// Auth token, if acquired. Also available as {{auth_token}} variable.
+    pub auth_token: Option<String>,
 }
 
 impl HttpBackend {
@@ -18,6 +22,39 @@ impl HttpBackend {
             .url
             .clone()
             .ok_or_else(|| anyhow!("http backend requires backend.url"))?;
+        let mut headers = spec.headers.clone().unwrap_or_default();
+        let mut auth_token = None;
+
+        // Acquire auth token if configured.
+        if let Some(auth) = &spec.auth {
+            let resp = ureq::post(&auth.token_url)
+                .set("Content-Type", "application/json")
+                .send_string(&auth.body.to_string())
+                .map_err(|e| anyhow!("auth token request to {} failed: {}", auth.token_url, e))?;
+
+            let body = resp.into_string()
+                .context("failed to read auth token response body")?;
+            let json: serde_json::Value = serde_json::from_str(&body)
+                .with_context(|| format!("auth token response is not valid JSON: {}", body))?;
+
+            let token = json.pointer(&auth.token_pointer)
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| anyhow!(
+                    "auth token not found at pointer '{}' in response: {}",
+                    auth.token_pointer,
+                    body
+                ))?
+                .to_string();
+
+            let header_name = auth.header_name.as_deref().unwrap_or("Authorization");
+            let header_prefix = auth.header_prefix.as_deref().unwrap_or("Bearer ");
+            headers.insert(
+                header_name.to_string(),
+                format!("{}{}", header_prefix, token),
+            );
+            auth_token = Some(token);
+        }
+
         Ok(Self {
             url,
             session_field: spec
@@ -32,14 +69,15 @@ impl HttpBackend {
                 .response_field
                 .clone()
                 .unwrap_or_else(|| "response".to_string()),
-            headers: spec.headers.clone().unwrap_or_default(),
+            headers,
+            auth_token,
         })
     }
 }
 
 impl AgentBackend for HttpBackend {
-    fn name(&self) -> &str {
-        "http"
+    fn backend_type(&self) -> BackendType {
+        BackendType::Http
     }
 
     fn send(&self, req: SendRequest) -> Result<SendResponse> {
@@ -55,22 +93,14 @@ impl AgentBackend for HttpBackend {
             request = request.set(k, v);
         }
 
-        let resp_str = match request.send_json(&body) {
-            Ok(resp) => resp
-                .into_string()
-                .with_context(|| "failed to read HTTP response body")?,
-            Err(ureq::Error::Status(code, resp)) => {
-                let body = resp.into_string().unwrap_or_default();
-                return Err(anyhow!(
-                    "HTTP backend returned status {} from {}: {}",
-                    code,
-                    self.url,
-                    body
-                ));
-            }
-            Err(e) => {
-                return Err(anyhow!("HTTP request to {} failed: {}", self.url, e));
-            }
+        let resp_str = match read_ureq_response("HTTP backend", &self.url, request.send_json(&body))? {
+            UreqRead::Ok(u) => u.body,
+            UreqRead::ErrorStatus(u) => return Err(anyhow!(
+                "HTTP backend returned status {} from {}: {}",
+                u.status,
+                self.url,
+                u.body
+            )),
         };
 
         let duration = start.elapsed();

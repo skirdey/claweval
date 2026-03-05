@@ -20,7 +20,7 @@ COPY matrix/agents/openclaw/config.json /app/config.json
 
 # Pre-create openclaw config/state directory and set model to use OpenRouter
 RUN mkdir -p /root/.openclaw && \
-    openclaw models set openrouter/anthropic/claude-opus-4-6
+    openclaw models set openrouter/qwen/qwen3.5-397b-a17b
 
 ENV ADAPTER_CONFIG=/app/config.json
 ENV PORT=5000

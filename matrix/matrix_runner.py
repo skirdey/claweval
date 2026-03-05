@@ -66,7 +66,7 @@ def docker_compose(*args: str, check: bool = True) -> subprocess.CompletedProces
     return subprocess.run(cmd, capture_output=True, text=True, check=check, cwd=str(PROJECT_ROOT))
 
 
-def start_containers(agents: list[dict], build: bool = True):
+def start_containers(agents: list[dict], build: bool = True, global_sidecars: list[str] | None = None):
     """Start Docker containers for the given agents."""
     service_names = []
     for agent in agents:
@@ -74,6 +74,10 @@ def start_containers(agents: list[dict], build: bool = True):
         # Include sidecar services
         for sidecar in agent.get("sidecars", []):
             service_names.append(sidecar)
+
+    for sidecar in global_sidecars or []:
+        service_names.append(sidecar)
+    service_names = sorted(set(service_names))
 
     print(f"\n--- Starting containers: {', '.join(service_names)}")
     build_flag = ["--build"] if build else []
@@ -159,6 +163,7 @@ def make_concrete_suite(
     template_path: Path,
     agent: dict,
     judge_config: dict | None,
+    suite_metadata: dict | None,
     tmp_dir: Path,
 ) -> Path:
     """Deep-copy a suite template and override the backend to point at the agent's port."""
@@ -180,6 +185,13 @@ def make_concrete_suite(
     # Inject judge_backend if provided
     if judge_config:
         suite["judge_backend"] = substitute_env_vars(judge_config)
+
+    if suite_metadata:
+        md = suite_metadata.get(template_path.stem, {})
+        if md.get("capability_tags") is not None:
+            suite["capability_tags"] = md.get("capability_tags")
+        if md.get("scoring_class") is not None:
+            suite["scoring_class"] = md.get("scoring_class")
 
     out_path = tmp_dir / f"{agent['name']}__{template_path.stem}.json"
     with open(out_path, "w") as f:
@@ -206,6 +218,7 @@ def main():
     config = load_config(args.config)
     all_agents = config["agents"]
     judge_config = config.get("judge_backend")
+    suite_metadata = config.get("suite_metadata", {})
     suite_files = config.get("suites", [])
 
     # Filter agents
@@ -244,9 +257,11 @@ def main():
     reports_dir.mkdir(parents=True, exist_ok=True)
     print(f"  Reports: {reports_dir}")
 
+    global_sidecars = config.get("options", {}).get("global_sidecars", [])
+
     # Docker compose up
     if not args.no_docker:
-        start_containers(agents, build=not args.no_build)
+        start_containers(agents, build=not args.no_build, global_sidecars=global_sidecars)
         wait_for_health(agents, timeout=args.timeout)
 
     # Run matrix
@@ -260,7 +275,9 @@ def main():
                 combo_name = f"{agent['name']}__{suite_path.stem}"
                 print(f"\n=== Running: {combo_name} ===")
 
-                concrete_suite = make_concrete_suite(suite_path, agent, judge_config, tmp_path)
+                concrete_suite = make_concrete_suite(
+                    suite_path, agent, judge_config, suite_metadata, tmp_path
+                )
                 report_path = reports_dir / f"{combo_name}.json"
 
                 success = run_claweval(

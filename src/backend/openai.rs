@@ -1,5 +1,7 @@
 use crate::backend::{AgentBackend, SendRequest, SendResponse};
 use crate::spec::BackendSpec;
+use crate::types::BackendType;
+use crate::util::{read_ureq_response, UreqRead};
 use anyhow::{anyhow, Context, Result};
 use std::collections::HashMap;
 use std::sync::Mutex;
@@ -41,8 +43,8 @@ impl OpenAIBackend {
 }
 
 impl AgentBackend for OpenAIBackend {
-    fn name(&self) -> &str {
-        "openai"
+    fn backend_type(&self) -> BackendType {
+        BackendType::OpenAI
     }
 
     fn send(&self, req: SendRequest) -> Result<SendResponse> {
@@ -67,25 +69,19 @@ impl AgentBackend for OpenAIBackend {
         });
 
         let url = self.chat_url();
-        let resp_str = match ureq::post(&url)
+        let resp = ureq::post(&url)
             .set("Authorization", &format!("Bearer {}", self.api_key))
             .set("Content-Type", "application/json")
-            .send_json(&body)
-        {
-            Ok(resp) => resp
-                .into_string()
-                .with_context(|| "failed to read OpenAI response body")?,
-            Err(ureq::Error::Status(code, resp)) => {
-                let body = resp.into_string().unwrap_or_default();
+            .send_json(&body);
+        let resp_str = match read_ureq_response("OpenAI backend", &url, resp)? {
+            UreqRead::Ok(u) => u.body,
+            UreqRead::ErrorStatus(u) => {
                 return Err(anyhow!(
                     "OpenAI backend returned status {} from {}: {}",
-                    code,
+                    u.status,
                     url,
-                    body
-                ));
-            }
-            Err(e) => {
-                return Err(anyhow!("OpenAI request to {} failed: {}", url, e));
+                    u.body
+                ))
             }
         };
 

@@ -47,22 +47,34 @@ def compute_agent_stats(agent_reports: dict[str, dict]) -> dict:
     passed_episodes = 0
     total_duration_ms = 0
     per_suite: dict[str, dict] = {}
+    core_total = 0
+    core_passed = 0
+    advanced_total = 0
+    advanced_passed = 0
 
     for suite_name, report in agent_reports.items():
         overall = report.get("overall", {})
         suite_total = overall.get("total_runs", 0)
         suite_passed = overall.get("passed_runs", 0)
         suite_duration = report.get("duration_ms", 0)
+        scoring_class = report.get("scoring_class", "core")
 
         total_episodes += suite_total
         passed_episodes += suite_passed
         total_duration_ms += suite_duration
+        if scoring_class == "advanced":
+            advanced_total += suite_total
+            advanced_passed += suite_passed
+        else:
+            core_total += suite_total
+            core_passed += suite_passed
 
         per_suite[suite_name] = {
             "total": suite_total,
             "passed": suite_passed,
             "pass_rate": round(suite_passed / suite_total * 100, 1) if suite_total > 0 else 0,
             "duration_ms": suite_duration,
+            "scoring_class": scoring_class,
         }
 
     pass_rate = round(passed_episodes / total_episodes * 100, 1) if total_episodes > 0 else 0
@@ -75,6 +87,12 @@ def compute_agent_stats(agent_reports: dict[str, dict]) -> dict:
         "total_duration_ms": total_duration_ms,
         "avg_suite_duration_ms": avg_duration,
         "per_suite": per_suite,
+        "core_total_episodes": core_total,
+        "core_passed_episodes": core_passed,
+        "core_pass_rate": round(core_passed / core_total * 100, 1) if core_total > 0 else 0,
+        "advanced_total_episodes": advanced_total,
+        "advanced_passed_episodes": advanced_passed,
+        "advanced_pass_rate": round(advanced_passed / advanced_total * 100, 1) if advanced_total > 0 else 0,
     }
 
 
@@ -112,8 +130,23 @@ def build_summary(reports: dict[str, dict[str, dict]]) -> dict:
     for i, entry in enumerate(leaderboard):
         entry["rank"] = i + 1
 
+    core_rank = sorted(
+        leaderboard,
+        key=lambda x: (-x["core_pass_rate"], x["avg_suite_duration_ms"]),
+    )
+    advanced_rank = sorted(
+        leaderboard,
+        key=lambda x: (-x["advanced_pass_rate"], x["avg_suite_duration_ms"]),
+    )
+    for i, entry in enumerate(core_rank):
+        entry["core_rank"] = i + 1
+    for i, entry in enumerate(advanced_rank):
+        entry["advanced_rank"] = i + 1
+
     return {
         "leaderboard": leaderboard,
+        "core_leaderboard": core_rank,
+        "advanced_leaderboard": advanced_rank,
         "episode_comparison": compute_episode_comparison(reports),
     }
 
@@ -131,6 +164,28 @@ def render_markdown(summary: dict, agents: list[str], suites: list[str]) -> str:
             f"| {entry['rank']} | {entry['agent']} | {entry['pass_rate']}% "
             f"| {entry['passed_episodes']}/{entry['total_episodes']} "
             f"| {entry['avg_suite_duration_ms']}ms |"
+        )
+    lines.append("")
+
+    # Core reliability leaderboard
+    lines.append("## Core Reliability\n")
+    lines.append("| Rank | Agent | Core Pass Rate | Passed/Total |")
+    lines.append("|------|-------|----------------|--------------|")
+    for entry in sorted(summary["core_leaderboard"], key=lambda x: x["core_rank"]):
+        lines.append(
+            f"| {entry['core_rank']} | {entry['agent']} | {entry['core_pass_rate']}% "
+            f"| {entry['core_passed_episodes']}/{entry['core_total_episodes']} |"
+        )
+    lines.append("")
+
+    # Advanced capability leaderboard
+    lines.append("## Advanced Capability\n")
+    lines.append("| Rank | Agent | Advanced Pass Rate | Passed/Total |")
+    lines.append("|------|-------|--------------------|--------------|")
+    for entry in sorted(summary["advanced_leaderboard"], key=lambda x: x["advanced_rank"]):
+        lines.append(
+            f"| {entry['advanced_rank']} | {entry['agent']} | {entry['advanced_pass_rate']}% "
+            f"| {entry['advanced_passed_episodes']}/{entry['advanced_total_episodes']} |"
         )
     lines.append("")
 

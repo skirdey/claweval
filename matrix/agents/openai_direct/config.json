@@ -2,7 +2,7 @@
   "agent_name": "openai_direct",
   "mode": "openai_proxy",
   "base_url": "https://openrouter.ai/api/v1",
-  "model": "anthropic/claude-opus-4-6",
+  "model": "qwen/qwen3.5-397b-a17b",
   "system_prompt": "You are a helpful assistant. Follow instructions precisely. When asked to reply with only a specific format, do exactly that with no extra text.",
   "temperature": 0.3,
   "max_tokens": 1024,

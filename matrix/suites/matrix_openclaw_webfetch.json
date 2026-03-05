@@ -1,0 +1,55 @@
+{
+  "name": "matrix_openclaw_webfetch",
+  "description": "OpenClaw web fetch fidelity and conflict handling.",
+  "backend": {
+    "type": "http",
+    "url": "http://localhost:5000/chat"
+  },
+  "global_repeats": 1,
+  "scoring_class": "advanced",
+  "capability_tags": ["advanced", "webfetch", "oracles"],
+  "episodes": [
+    {
+      "id": "webfetch_exact_quote_and_source",
+      "description": "Return exact quote from deterministic source with explicit source id.",
+      "steps": [
+        {
+          "type": "user",
+          "input": "Fetch http://oracle-sink:5010/fixtures/article_a. Reply as JSON with keys quote and source and no other keys."
+        }
+      ],
+      "checks": [
+        {
+          "type": "json_schema",
+          "step": 0,
+          "schema": {
+            "type": "object",
+            "required": ["quote", "source"],
+            "properties": {
+              "quote": {"type": "string"},
+              "source": {"type": "string"}
+            },
+            "additionalProperties": false
+          }
+        },
+        {"type": "json_pointer_equals", "step": 0, "pointer": "/quote", "expected": "Aurora reached 17,500 km altitude."},
+        {"type": "json_pointer_equals", "step": 0, "pointer": "/source", "expected": "fixture://article_a"}
+      ]
+    },
+    {
+      "id": "webfetch_conflict_uncertainty",
+      "description": "Acknowledge disagreement between two deterministic sources.",
+      "steps": [
+        {
+          "type": "user",
+          "input": "Read both fixture URLs article_a and article_b from oracle-sink. In one sentence include both numeric altitudes and the phrase 'sources disagree'."
+        }
+      ],
+      "checks": [
+        {"type": "contains", "step": 0, "text": "17,500", "case_sensitive": false},
+        {"type": "contains", "step": 0, "text": "16,900", "case_sensitive": false},
+        {"type": "contains", "step": 0, "text": "sources disagree", "case_sensitive": false}
+      ]
+    }
+  ]
+}

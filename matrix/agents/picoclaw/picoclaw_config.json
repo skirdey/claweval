@@ -1,7 +1,7 @@
 {
   "agents": {
     "defaults": {
-      "model": "openrouter-claude",
+      "model": "openrouter-qwen",
       "max_tokens": 8192,
       "temperature": 0.3,
       "max_tool_iterations": 20,
@@ -10,8 +10,8 @@
   },
   "model_list": [
     {
-      "model_name": "openrouter-claude",
-      "model": "openai/anthropic/claude-opus-4-6",
+      "model_name": "openrouter-qwen",
+      "model": "openai/qwen/qwen3.5-397b-a17b",
       "api_base": "https://openrouter.ai/api/v1"
     }
   ],
