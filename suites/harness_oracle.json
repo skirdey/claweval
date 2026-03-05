@@ -1,0 +1,87 @@
+{
+  "name": "harness_oracle",
+  "description": "Harness-only validation for exec/http_probe/poll/check plumbing. No LLM capability eval.",
+  "backend": {
+    "type": "command",
+    "command": "python",
+    "args": ["examples/fake_agent.py", "--session", "{session}", "--message", "{message}"]
+  },
+  "global_repeats": 1,
+  "episodes": [
+    {
+      "id": "exec_json_parsing_and_exit",
+      "description": "Exec step returns JSON; harness captures output and parses JSON pointers.",
+      "steps": [
+        {
+          "type": "exec",
+          "name": "emit_json",
+          "command": "python",
+          "args": ["-c", "print('{\"ok\": true, \"n\": 3}')"]
+        }
+      ],
+      "checks": [
+        {"type": "contains", "step": 0, "text": "\"ok\": true"},
+        {"type": "json_pointer_equals", "step": 0, "pointer": "/ok", "expected": true},
+        {"type": "json_pointer_exists", "step": 0, "pointer": "/n"}
+      ]
+    },
+    {
+      "id": "http_probe_status_and_json",
+      "description": "HTTP probe checks status code and JSON shape from oracle sink.",
+      "steps": [
+        {
+          "type": "http_probe",
+          "name": "oracle_health",
+          "method": "GET",
+          "url": "http://localhost:5010/health"
+        }
+      ],
+      "checks": [
+        {"type": "status_code_equals", "step": 0, "code": 200},
+        {"type": "json_pointer_equals", "step": 0, "pointer": "/ok", "expected": true},
+        {"type": "json_pointer_exists", "step": 0, "pointer": "/events"}
+      ]
+    },
+    {
+      "id": "poll_eventually_contains_marker",
+      "description": "Harness posts an event and poll waits until marker appears.",
+      "steps": [
+        {
+          "type": "http_probe",
+          "name": "clear",
+          "method": "DELETE",
+          "url": "http://localhost:5010/events?run_id=harness_suite"
+        },
+        {
+          "type": "exec",
+          "name": "post_event",
+          "command": "python",
+          "args": [
+            "-c",
+            "import json,urllib.request;d=json.dumps({'run_id':'harness_suite','session_id':'h1','event_type':'probe','payload':{'marker':'HARNESS-MARKER'}}).encode();r=urllib.request.Request('http://localhost:5010/events',data=d,headers={'Content-Type':'application/json'},method='POST');print(urllib.request.urlopen(r,timeout=5).read().decode())"
+          ]
+        },
+        {
+          "type": "poll",
+          "name": "wait_event",
+          "interval_ms": 500,
+          "timeout_ms": 5000,
+          "probe": {
+            "type": "http_probe",
+            "method": "GET",
+            "url": "http://localhost:5010/events?run_id=harness_suite&session_id=h1&event_type=probe"
+          },
+          "until": {
+            "type": "contains_text",
+            "text": "HARNESS-MARKER"
+          }
+        }
+      ],
+      "checks": [
+        {"type": "contains", "step": 1, "text": "HARNESS-MARKER"},
+        {"type": "eventually_contains", "step": 2, "text": "HARNESS-MARKER", "within_ms": 5000},
+        {"type": "within_time_window_ms", "step": 2, "min_ms": 0, "max_ms": 5000}
+      ]
+    }
+  ]
+}

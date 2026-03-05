@@ -1,0 +1,314 @@
+{
+  "name": "harness_oracle",
+  "description": "Harness-only validation for exec/http_probe/poll/check plumbing. No LLM capability eval.",
+  "backend": {
+    "backend_type": "command",
+    "detail": {
+      "suite_backend_spec": {
+        "api_key": null,
+        "args": [
+          "examples/fake_agent.py",
+          "--session",
+          "{session}",
+          "--message",
+          "{message}"
+        ],
+        "base_url": null,
+        "command": "python",
+        "env": null,
+        "global_args": null,
+        "headers": null,
+        "json": null,
+        "local": null,
+        "message_field": null,
+        "model": null,
+        "openclaw_bin": null,
+        "profile": null,
+        "response_field": null,
+        "session_field": null,
+        "type": "command",
+        "url": null
+      }
+    }
+  },
+  "started_at_unix_ms": 1772014418242,
+  "duration_ms": 144,
+  "overall": {
+    "total_runs": 3,
+    "passed_runs": 3,
+    "pass_rate": {
+      "successes": 3,
+      "n": 3,
+      "p": 1.0,
+      "wilson_95": {
+        "low": 0.43849391955098227,
+        "high": 1.0
+      }
+    }
+  },
+  "episodes": [
+    {
+      "id": "exec_json_parsing_and_exit",
+      "description": "Exec step returns JSON; harness captures output and parses JSON pointers.",
+      "repeats": 1,
+      "summary": {
+        "total_runs": 1,
+        "passed_runs": 1,
+        "pass_rate": {
+          "successes": 1,
+          "n": 1,
+          "p": 1.0,
+          "wilson_95": {
+            "low": 0.20654329147389294,
+            "high": 1.0
+          }
+        },
+        "avg_duration_ms": 20.0
+      },
+      "runs": [
+        {
+          "run_index": 0,
+          "session_id": "c1fb6b62-bec5-4bc7-92c4-389fbcc571b9",
+          "pass": true,
+          "duration_ms": 20,
+          "steps": [
+            {
+              "index": 0,
+              "kind": "exec",
+              "name": "emit_json",
+              "input": "python -c print('{\"ok\": true, \"n\": 3}')",
+              "output_text": "{\"ok\": true, \"n\": 3}",
+              "duration_ms": 20,
+              "json": {
+                "n": 3,
+                "ok": true
+              },
+              "raw_stdout": "{\"ok\": true, \"n\": 3}\r\n",
+              "raw_stderr": "",
+              "step_kind_details": {
+                "exit_code": 0
+              }
+            }
+          ],
+          "checks": [
+            {
+              "check_type": "contains",
+              "step": 0,
+              "pass": true,
+              "score": 1.0,
+              "details": "found substring '\"ok\": true'"
+            },
+            {
+              "check_type": "json_pointer_equals",
+              "step": 0,
+              "pass": true,
+              "score": 1.0,
+              "details": "pointer /ok matched"
+            },
+            {
+              "check_type": "json_pointer_exists",
+              "step": 0,
+              "pass": true,
+              "score": 1.0,
+              "details": "pointer /n exists"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "http_probe_status_and_json",
+      "description": "HTTP probe checks status code and JSON shape from oracle sink.",
+      "repeats": 1,
+      "summary": {
+        "total_runs": 1,
+        "passed_runs": 1,
+        "pass_rate": {
+          "successes": 1,
+          "n": 1,
+          "p": 1.0,
+          "wilson_95": {
+            "low": 0.20654329147389294,
+            "high": 1.0
+          }
+        },
+        "avg_duration_ms": 6.0
+      },
+      "runs": [
+        {
+          "run_index": 0,
+          "session_id": "a233f636-f189-48e2-be47-c200e22be905",
+          "pass": true,
+          "duration_ms": 6,
+          "steps": [
+            {
+              "index": 0,
+              "kind": "http_probe",
+              "name": "oracle_health",
+              "input": "GET http://localhost:5010/health",
+              "output_text": "{\"ok\": true, \"events\": 0}",
+              "duration_ms": 6,
+              "json": {
+                "events": 0,
+                "ok": true
+              },
+              "raw_stdout": "{\"ok\": true, \"events\": 0}",
+              "raw_stderr": "",
+              "step_kind_details": {
+                "status_code": 200
+              }
+            }
+          ],
+          "checks": [
+            {
+              "check_type": "status_code_equals",
+              "step": 0,
+              "pass": true,
+              "score": 1.0,
+              "details": "status code matched 200"
+            },
+            {
+              "check_type": "json_pointer_equals",
+              "step": 0,
+              "pass": true,
+              "score": 1.0,
+              "details": "pointer /ok matched"
+            },
+            {
+              "check_type": "json_pointer_exists",
+              "step": 0,
+              "pass": true,
+              "score": 1.0,
+              "details": "pointer /events exists"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "poll_eventually_contains_marker",
+      "description": "Harness posts an event and poll waits until marker appears.",
+      "repeats": 1,
+      "summary": {
+        "total_runs": 1,
+        "passed_runs": 1,
+        "pass_rate": {
+          "successes": 1,
+          "n": 1,
+          "p": 1.0,
+          "wilson_95": {
+            "low": 0.20654329147389294,
+            "high": 1.0
+          }
+        },
+        "avg_duration_ms": 116.0
+      },
+      "runs": [
+        {
+          "run_index": 0,
+          "session_id": "ab086664-eaf0-492e-b9b1-7b47896bd868",
+          "pass": true,
+          "duration_ms": 116,
+          "steps": [
+            {
+              "index": 0,
+              "kind": "http_probe",
+              "name": "clear",
+              "input": "DELETE http://localhost:5010/events?run_id=harness_suite",
+              "output_text": "{\"ok\": true, \"deleted\": 0, \"remaining\": 0}",
+              "duration_ms": 2,
+              "json": {
+                "deleted": 0,
+                "ok": true,
+                "remaining": 0
+              },
+              "raw_stdout": "{\"ok\": true, \"deleted\": 0, \"remaining\": 0}",
+              "raw_stderr": "",
+              "step_kind_details": {
+                "status_code": 200
+              }
+            },
+            {
+              "index": 1,
+              "kind": "exec",
+              "name": "post_event",
+              "input": "python -c import json,urllib.request;d=json.dumps({'run_id':'harness_suite','session_id':'h1','event_type':'probe','payload':{'marker':'HARNESS-MARKER'}}).encode();r=urllib.request.Request('http://localhost:5010/events',data=d,headers={'Content-Type':'application/json'},method='POST');print(urllib.request.urlopen(r,timeout=5).read().decode())",
+              "output_text": "{\"ok\": true, \"event\": {\"run_id\": \"harness_suite\", \"session_id\": \"h1\", \"event_type\": \"probe\", \"payload\": {\"marker\": \"HARNESS-MARKER\"}, \"ts\": 1772014418375}, \"count\": 1}",
+              "duration_ms": 111,
+              "json": {
+                "count": 1,
+                "event": {
+                  "event_type": "probe",
+                  "payload": {
+                    "marker": "HARNESS-MARKER"
+                  },
+                  "run_id": "harness_suite",
+                  "session_id": "h1",
+                  "ts": 1772014418375
+                },
+                "ok": true
+              },
+              "raw_stdout": "{\"ok\": true, \"event\": {\"run_id\": \"harness_suite\", \"session_id\": \"h1\", \"event_type\": \"probe\", \"payload\": {\"marker\": \"HARNESS-MARKER\"}, \"ts\": 1772014418375}, \"count\": 1}\r\n",
+              "raw_stderr": "",
+              "step_kind_details": {
+                "exit_code": 0
+              }
+            },
+            {
+              "index": 2,
+              "kind": "poll",
+              "name": "wait_event",
+              "input": "poll every 500ms for 5000ms",
+              "output_text": "{\"events\": [{\"run_id\": \"harness_suite\", \"session_id\": \"h1\", \"event_type\": \"probe\", \"payload\": {\"marker\": \"HARNESS-MARKER\"}, \"ts\": 1772014418375}], \"count\": 1}",
+              "duration_ms": 2,
+              "json": {
+                "count": 1,
+                "events": [
+                  {
+                    "event_type": "probe",
+                    "payload": {
+                      "marker": "HARNESS-MARKER"
+                    },
+                    "run_id": "harness_suite",
+                    "session_id": "h1",
+                    "ts": 1772014418375
+                  }
+                ]
+              },
+              "raw_stdout": "{\"events\": [{\"run_id\": \"harness_suite\", \"session_id\": \"h1\", \"event_type\": \"probe\", \"payload\": {\"marker\": \"HARNESS-MARKER\"}, \"ts\": 1772014418375}], \"count\": 1}",
+              "raw_stderr": "",
+              "step_kind_details": {
+                "status_code": 200,
+                "poll_attempts": 1,
+                "poll_satisfied": true
+              }
+            }
+          ],
+          "checks": [
+            {
+              "check_type": "contains",
+              "step": 1,
+              "pass": true,
+              "score": 1.0,
+              "details": "found substring 'HARNESS-MARKER'"
+            },
+            {
+              "check_type": "eventually_contains",
+              "step": 2,
+              "pass": true,
+              "score": 1.0,
+              "details": "found 'HARNESS-MARKER' within 5000ms (2ms)"
+            },
+            {
+              "check_type": "within_time_window_ms",
+              "step": 2,
+              "pass": true,
+              "score": 1.0,
+              "details": "2ms within [0ms, 5000ms]"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
