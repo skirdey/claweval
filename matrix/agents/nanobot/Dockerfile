@@ -3,7 +3,7 @@ FROM python:3.12-slim
 # Install nanobot and adapter dependencies
 COPY matrix/adapter/requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt && \
-    pip install --no-cache-dir nanobot-ai
+    pip install --no-cache-dir nanobot-ai --upgrade
 
 # Initialize nanobot workspace directories
 RUN mkdir -p /root/.nanobot/workspace/sessions \

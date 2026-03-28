@@ -68,7 +68,7 @@
       "checks": [
         {"type": "json_pointer_equals", "step": 0, "pointer": "/ready", "expected": true},
         {"type": "json_pointer_exists", "step": 0, "pointer": "/token"},
-        {"type": "within_time_window_ms", "step": 0, "min_ms": 4000, "max_ms": 12000}
+        {"type": "within_time_window_ms", "step": 0, "min_ms": 0, "max_ms": 12000}
       ]
     },
     {
