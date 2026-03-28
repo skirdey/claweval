@@ -2,17 +2,31 @@
 
 Composable eval runner for long-running, tool-using AI assistants. Suite > episode > step > check.
 
-## Eval results (2026-02-23)
+## Eval results (2026-03-28)
 
-From [`reports/matrix/run_20260223_150924/_matrix_summary.md`](reports/matrix/run_20260223_150924/_matrix_summary.md):
+From [`reports/matrix/run_20260328_122501/_matrix_summary.md`](reports/matrix/run_20260328_122501/_matrix_summary.md):
 
-| Rank | Agent | Pass rate | Passed/Total |
-|------|-------|-----------|--------------|
-| 1 | picoclaw | 100.0% | 14/14 |
-| 2 | openclaw | 92.9% | 13/14 |
-| 3 | openai_direct | 92.9% | 13/14 |
-| 4 | ironclaw | 92.9% | 13/14 |
-| 5 | nanobot | 85.7% | 12/14 |
+| Rank | Agent | Pass Rate | Passed/Total | Avg Duration |
+|------|-------|-----------|--------------|--------------|
+| 1 | hermes | 88.9% | 16/18 | 37198ms |
+| 2 | openclaw | 83.3% | 15/18 | 62226ms |
+| 3 | openai_direct | 77.8% | 14/18 | 41457ms |
+| 4 | ironclaw | 61.1% | 11/18 | 23283ms |
+| 5 | picoclaw | 38.9% | 7/18 | 29044ms |
+| 6 | nanobot | 33.3% | 6/18 | 27469ms |
+
+All agents evaluated against `qwen/qwen3.5-397b-a17b` via OpenRouter.
+
+### Per-suite breakdown
+
+| Suite | hermes | openclaw | openai_direct | ironclaw | picoclaw | nanobot |
+|-------|--------|----------|---------------|----------|----------|---------|
+| matrix_basic | 4/4 | 4/4 | 4/4 | 4/4 | 3/4 | 3/4 |
+| matrix_memory | 3/3 | 2/3 | 3/3 | 2/3 | 0/3 | 0/3 |
+| matrix_structured | 3/3 | 3/3 | 3/3 | 2/3 | 2/3 | 1/3 |
+| matrix_longhorizon_reliability | 2/2 | 2/2 | 2/2 | 1/2 | 0/2 | 0/2 |
+| matrix_async_simulated | 2/3 | 2/3 | 1/3 | 1/3 | 1/3 | 1/3 |
+| matrix_tools_grounding | 2/3 | 2/3 | 1/3 | 1/3 | 1/3 | 1/3 |
 
 ## Eval suite descriptions
 
@@ -20,6 +34,9 @@ From [`reports/matrix/run_20260223_150924/_matrix_summary.md`](reports/matrix/ru
 - `matrix_memory` (3 episodes): multi-turn memory and state retention across a session.
 - `matrix_reasoning` (4 episodes): arithmetic, logic, word problems, plus one `llm_judge` quality check.
 - `matrix_structured` (3 episodes): structured output checks for exact JSON, schema compliance, and JSON array format.
+- `matrix_async_simulated` (3 episodes): exec probes, oracle event writes, and polling for dynamic readiness.
+- `matrix_tools_grounding` (3 episodes): oracle HTTP probes, deterministic fetch, and conflict resolution with uncertainty.
+- `matrix_longhorizon_reliability` (2 episodes): ten-turn secret retention and counter state drift across long sessions.
 
 ## Features
 
