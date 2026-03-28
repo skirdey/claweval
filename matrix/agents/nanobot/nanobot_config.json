@@ -7,8 +7,7 @@
       "model": "qwen/qwen3.5-397b-a17b",
       "maxTokens": 8192,
       "temperature": 0.3,
-      "maxToolIterations": 20,
-      "memoryWindow": 50
+      "maxToolIterations": 20
     }
   }
 }
