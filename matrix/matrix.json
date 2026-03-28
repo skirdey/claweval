@@ -34,6 +34,13 @@
       "port": 5005,
       "enabled": true,
       "description": "Raw LLM baseline via OpenRouter (no agent framework)"
+    },
+    {
+      "name": "hermes",
+      "service": "hermes",
+      "port": 5006,
+      "enabled": true,
+      "description": "Hermes Agent (Nous Research) - self-improving AI agent"
     }
   ],
   "suites": [

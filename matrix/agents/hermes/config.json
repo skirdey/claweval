@@ -1,0 +1,7 @@
+{
+  "agent_name": "hermes",
+  "mode": "cli",
+  "command": "bash",
+  "args": ["/app/hermes_run.sh", "{message}", "{session_id}"],
+  "timeout_seconds": 120
+}
