@@ -54,7 +54,8 @@
     "matrix_openclaw_scheduler.json",
     "matrix_openclaw_browser.json",
     "matrix_openclaw_webfetch.json",
-    "matrix_openclaw_skills.json"
+    "matrix_openclaw_skills.json",
+    "matrix_browser_install.json"
   ],
   "suite_metadata": {
     "matrix_basic": {
@@ -99,6 +100,10 @@
     },
     "matrix_openclaw_skills": {
       "capability_tags": ["advanced", "skills", "oracles"],
+      "scoring_class": "advanced"
+    },
+    "matrix_browser_install": {
+      "capability_tags": ["advanced", "browser", "install", "tool_use"],
       "scoring_class": "advanced"
     }
   },
