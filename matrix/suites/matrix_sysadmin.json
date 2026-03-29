@@ -1,0 +1,117 @@
+{
+  "name": "matrix_sysadmin",
+  "description": "System administration: service debugging, permissions audit, cron job design.",
+  "backend": {
+    "type": "http",
+    "url": "http://localhost:5000/chat"
+  },
+  "global_repeats": 1,
+  "scoring_class": "core",
+  "capability_tags": ["core", "sysadmin", "reasoning"],
+  "episodes": [
+    {
+      "id": "diagnose_misconfigured_service",
+      "description": "Correlate config and logs to find why a service fails health checks.",
+      "steps": [
+        {
+          "type": "user",
+          "name": "diagnose",
+          "input": "A web service should be running on port 8080 but it's failing health checks. Here are the relevant files:\n\n/etc/myservice/config.toml:\n[server]\nlisten = \"0.0.0.0\"\nport = 8008\nworkers = 4\n\n[database]\nhost = \"db.internal\"\nport = 5432\nname = \"appdb\"\n\n/var/log/myservice.log (last 10 lines):\n2026-03-28 09:00:01 INFO  Starting myservice v2.4.1\n2026-03-28 09:00:01 INFO  Loading config from /etc/myservice/config.toml\n2026-03-28 09:00:02 INFO  Binding to 0.0.0.0:8008\n2026-03-28 09:00:02 INFO  Server listening on port 8008\n2026-03-28 09:00:05 WARN  Health check from load balancer failed: expected port 8080\n2026-03-28 09:00:10 WARN  Health check from load balancer failed: expected port 8080\n2026-03-28 09:00:15 WARN  Health check from load balancer failed: expected port 8080\n2026-03-28 09:00:16 ERROR Load balancer marked service unhealthy after 3 failed checks\n2026-03-28 09:00:16 INFO  Received SIGTERM from orchestrator\n2026-03-28 09:00:16 INFO  Shutting down\n\nDiagnose the problem. Reply as strict JSON: {\"root_cause\": \"...\", \"config_error\": \"...\", \"fix\": \"...\"}. No markdown, just JSON."
+        }
+      ],
+      "checks": [
+        {
+          "type": "json_schema",
+          "step": 0,
+          "schema": {
+            "type": "object",
+            "required": ["root_cause", "config_error", "fix"],
+            "properties": {
+              "root_cause": {"type": "string"},
+              "config_error": {"type": "string"},
+              "fix": {"type": "string"}
+            }
+          }
+        },
+        {"type": "contains", "step": 0, "text": "8008", "case_sensitive": true},
+        {"type": "contains", "step": 0, "text": "8080", "case_sensitive": true}
+      ]
+    },
+    {
+      "id": "permissions_audit",
+      "description": "Identify security issues in Unix file permissions and recommend fixes.",
+      "steps": [
+        {
+          "type": "user",
+          "name": "audit_perms",
+          "input": "Audit these file permissions for security issues:\n\n$ ls -la /opt/myapp/\ndrwxr-xr-x  5 root    root    4096 Mar 28 08:00 .\n-rw-rw-rw-  1 root    root    2048 Mar 28 08:00 config.yaml\n-rw-r--r--  1 appuser appuser 1024 Mar 28 08:00 .env\n-rw-r--r--  1 root    root    4096 Mar 28 07:00 id_rsa\n-rwsr-xr-x  1 root    root    8192 Mar 28 07:00 backup_tool\n-rw-r-----  1 appuser appuser 2048 Mar 28 08:00 app.py\n-rw-r--r--  1 root    root    1024 Mar 28 08:00 index.html\ndrwxrwxrwx  2 appuser appuser 4096 Mar 28 08:00 uploads/\n-rwx------  1 root    root    4096 Mar 28 07:00 run.sh\n\nFor each problematic file, explain the issue and recommended permissions. Reply as strict JSON: {\"findings\": [{\"path\": \"...\", \"current\": \"...\", \"issue\": \"...\", \"recommended\": \"...\"}], \"critical_count\": <N>}. Only include files with security problems. No markdown, just JSON."
+        }
+      ],
+      "checks": [
+        {
+          "type": "json_schema",
+          "step": 0,
+          "schema": {
+            "type": "object",
+            "required": ["findings", "critical_count"],
+            "properties": {
+              "findings": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["path", "issue", "recommended"],
+                  "properties": {
+                    "path": {"type": "string"},
+                    "current": {"type": "string"},
+                    "issue": {"type": "string"},
+                    "recommended": {"type": "string"}
+                  }
+                }
+              },
+              "critical_count": {"type": "integer"}
+            }
+          }
+        },
+        {"type": "json_array_length", "step": 0, "pointer": "/findings", "min": 3},
+        {"type": "contains", "step": 0, "text": "config.yaml"},
+        {"type": "contains", "step": 0, "text": "id_rsa"},
+        {
+          "type": "llm_judge",
+          "step": 0,
+          "rubric": "Must identify at minimum: (1) config.yaml is world-writable (rw-rw-rw-), should be 640 or 600. (2) id_rsa private key is world-readable (rw-r--r--), must be 600. (3) uploads/ is world-writable (rwxrwxrwx), should be 750 or 755. Should also flag: (4) backup_tool has SUID bit (rwsr-xr-x), risky. (5) .env is world-readable, may contain secrets. Should NOT flag index.html (644 is fine for public content), app.py (640 is correct), or run.sh (700 is correct for root scripts).",
+          "min_score": 0.6
+        }
+      ]
+    },
+    {
+      "id": "cron_expression_design",
+      "description": "Design a correct cron job with proper expression syntax and monitoring script.",
+      "steps": [
+        {
+          "type": "user",
+          "name": "design_cron",
+          "input": "Design a cron job that:\n1. Runs every 5 minutes\n2. Appends the current timestamp and disk usage percentage to /var/log/disk_monitor.log\n3. Log line format: YYYY-MM-DD HH:MM:SS - XX%\n\nReply as strict JSON: {\"cron_expression\": \"<5 fields, no command>\", \"script_content\": \"<the shell script>\", \"crontab_line\": \"<full crontab entry>\", \"example_output\": \"<one example log line>\"}. No markdown, just JSON."
+        }
+      ],
+      "checks": [
+        {
+          "type": "json_schema",
+          "step": 0,
+          "schema": {
+            "type": "object",
+            "required": ["cron_expression", "script_content", "crontab_line", "example_output"],
+            "properties": {
+              "cron_expression": {"type": "string"},
+              "script_content": {"type": "string"},
+              "crontab_line": {"type": "string"},
+              "example_output": {"type": "string"}
+            }
+          }
+        },
+        {"type": "json_pointer_contains", "step": 0, "pointer": "/cron_expression", "text": "*/5", "case_sensitive": true},
+        {"type": "regex", "step": 0, "pattern": "\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2} - \\d+%"},
+        {"type": "json_pointer_contains", "step": 0, "pointer": "/script_content", "text": "df", "case_sensitive": true}
+      ]
+    }
+  ]
+}

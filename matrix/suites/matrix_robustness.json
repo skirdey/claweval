@@ -1,0 +1,61 @@
+{
+  "name": "matrix_robustness",
+  "description": "Error recovery and constraint satisfaction under complex requirements.",
+  "backend": {
+    "type": "http",
+    "url": "http://localhost:5000/chat"
+  },
+  "global_repeats": 1,
+  "scoring_class": "core",
+  "capability_tags": ["core", "robustness", "reasoning"],
+  "episodes": [
+    {
+      "id": "dependency_recovery_strategy",
+      "description": "Write code that handles missing dependencies with fallback logic.",
+      "steps": [
+        {
+          "type": "user",
+          "name": "handle_deps",
+          "input": "Write a Python script that:\n1. Tries to import pandas\n2. If pandas is not installed, tries to install it via pip (subprocess)\n3. If pip install also fails, falls back to the csv standard library module\n4. Reads CSV data from stdin\n5. Outputs JSON to stdout: {\"row_count\": N, \"columns\": [...], \"summary\": {\"col_name\": mean_value, ...}} for each numeric column\n\nThe script must work in BOTH cases: with pandas available, and with only the csv stdlib module. Reply with ONLY the Python code. No markdown fences, no explanation."
+        }
+      ],
+      "checks": [
+        {"type": "not_empty", "step": 0},
+        {"type": "contains", "step": 0, "text": "import pandas", "case_sensitive": false},
+        {"type": "contains", "step": 0, "text": "ImportError", "case_sensitive": true},
+        {"type": "contains", "step": 0, "text": "csv", "case_sensitive": true},
+        {"type": "contains", "step": 0, "text": "subprocess", "case_sensitive": true},
+        {
+          "type": "llm_judge",
+          "step": 0,
+          "rubric": "Must: (1) Try import pandas, (2) On ImportError, try subprocess pip install, (3) On failure, fall back to csv stdlib, (4) Both pandas and csv paths must read from stdin, (5) Both must output valid JSON with row_count/columns/summary, (6) Summary must compute means for numeric columns, (7) No syntax errors, both paths are complete. Score 0 if fallback path is incomplete.",
+          "min_score": 0.7
+        }
+      ]
+    },
+    {
+      "id": "multi_constraint_data_generation",
+      "description": "Generate test data satisfying 7 simultaneous constraints.",
+      "steps": [
+        {
+          "type": "user",
+          "name": "generate_data",
+          "input": "Generate a JSON array of exactly 20 user records. ALL constraints must be satisfied:\n\n1. Each user: {\"name\": string, \"email\": string, \"age\": integer, \"role\": string}\n2. All emails must be valid (user@domain.tld) and unique\n3. All ages between 18 and 95 inclusive\n4. Exactly 4 users with role \"admin\", exactly 16 with role \"user\"\n5. All names must be unique\n6. At least 3 different email domains used\n7. Array sorted by age ascending\n\nReply with ONLY the JSON array. No markdown, no explanation."
+        }
+      ],
+      "checks": [
+        {"type": "not_empty", "step": 0},
+        {"type": "regex", "step": 0, "pattern": "\\[\\s*\\{"},
+        {"type": "contains", "step": 0, "text": "\"admin\"", "case_sensitive": true},
+        {"type": "contains", "step": 0, "text": "\"user\"", "case_sensitive": true},
+        {"type": "regex", "step": 0, "pattern": "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}"},
+        {
+          "type": "llm_judge",
+          "step": 0,
+          "rubric": "Verify ALL 7 constraints: (1) Exactly 20 objects with name/email/age/role keys. (2) All emails valid format and unique. (3) All ages integers 18-95. (4) Exactly 4 admin + 16 user roles. (5) All names unique. (6) At least 3 email domains. (7) Sorted by age ascending. Score 1.0 only if ALL constraints met. Deduct 0.15 per violated constraint.",
+          "min_score": 0.7
+        }
+      ]
+    }
+  ]
+}

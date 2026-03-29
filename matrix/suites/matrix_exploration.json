@@ -1,0 +1,82 @@
+{
+  "name": "matrix_exploration",
+  "description": "Exploration and adaptation: discover unknown APIs, complete abandoned projects.",
+  "backend": {
+    "type": "http",
+    "url": "http://localhost:5000/chat"
+  },
+  "global_repeats": 1,
+  "scoring_class": "advanced",
+  "capability_tags": ["advanced", "exploration", "tools"],
+  "episodes": [
+    {
+      "id": "discover_unknown_api",
+      "description": "Explore an undocumented API and produce accurate documentation.",
+      "steps": [
+        {
+          "type": "user",
+          "name": "explore_api",
+          "input": "A new API was deployed at http://oracle-sink:5010/api/v1 but no documentation exists. Your task:\n\n1. Explore the API systematically — discover endpoints, methods, parameters, and response formats\n2. Start by hitting the base URL, then follow hints to discover more\n3. Try different HTTP methods (GET, POST, DELETE) on discovered paths\n\nReply as strict JSON: {\"endpoints\": [{\"method\": \"GET\", \"path\": \"/api/v1/...\", \"description\": \"...\", \"parameters\": [...], \"example_response\": \"...\"}], \"total_discovered\": <N>}. No markdown, just JSON."
+        }
+      ],
+      "checks": [
+        {
+          "type": "json_schema",
+          "step": 0,
+          "schema": {
+            "type": "object",
+            "required": ["endpoints", "total_discovered"],
+            "properties": {
+              "endpoints": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["method", "path", "description"],
+                  "properties": {
+                    "method": {"type": "string"},
+                    "path": {"type": "string"},
+                    "description": {"type": "string"}
+                  }
+                }
+              },
+              "total_discovered": {"type": "integer"}
+            }
+          }
+        },
+        {"type": "json_array_length", "step": 0, "pointer": "/endpoints", "min": 3},
+        {"type": "contains", "step": 0, "text": "/api/v1/items", "case_sensitive": true},
+        {"type": "contains", "step": 0, "text": "/api/v1/status", "case_sensitive": true},
+        {
+          "type": "llm_judge",
+          "step": 0,
+          "rubric": "The real API has: GET /api/v1/status (service info with uptime and item count), GET /api/v1/items (list items, supports ?page=, ?per_page=, ?category= params), GET /api/v1/items/{id} (single item), POST /api/v1/items (create, requires name/price/category), DELETE /api/v1/items/{id} (remove). The agent must document at least 3 of these accurately based on actual exploration (not hallucinated). Score 0 if endpoints don't match reality.",
+          "min_score": 0.6
+        }
+      ]
+    },
+    {
+      "id": "complete_abandoned_project",
+      "description": "Understand requirements from README and tests, implement missing functionality.",
+      "steps": [
+        {
+          "type": "user",
+          "name": "complete_project",
+          "input": "A developer left this project incomplete. Read the README and tests, then implement the missing function.\n\nREADME.md:\n# Temperature Converter\nConverts temperatures between Celsius, Fahrenheit, and Kelvin.\n\nAPI: convert(value, from_unit, to_unit)\n- Units: 'C', 'F', 'K'\n- Returns float rounded to 2 decimal places\n- Raises ValueError for invalid units or temps below absolute zero\n\ntest_converter.py:\n```\nfrom converter import convert\n\ndef test_c_to_f():\n    assert convert(100, 'C', 'F') == 212.0\n    assert convert(0, 'C', 'F') == 32.0\n    assert convert(-40, 'C', 'F') == -40.0\n\ndef test_f_to_c():\n    assert convert(212, 'F', 'C') == 100.0\n    assert convert(32, 'F', 'C') == 0.0\n\ndef test_c_to_k():\n    assert convert(0, 'C', 'K') == 273.15\n    assert convert(100, 'C', 'K') == 373.15\n\ndef test_k_to_c():\n    assert convert(273.15, 'K', 'C') == 0.0\n\ndef test_f_to_k():\n    assert convert(32, 'F', 'K') == 273.15\n\ndef test_same_unit():\n    assert convert(42, 'C', 'C') == 42.0\n\ndef test_invalid_unit():\n    try:\n        convert(100, 'C', 'X')\n        assert False\n    except ValueError:\n        pass\n\ndef test_below_absolute_zero():\n    try:\n        convert(-500, 'C', 'F')\n        assert False\n    except ValueError:\n        pass\n```\n\nconverter.py (current):\n```\ndef convert(value, from_unit, to_unit):\n    # TODO: implement\n    pass\n```\n\nWrite the complete converter.py implementation. Reply with ONLY the Python code, no markdown fences."
+        }
+      ],
+      "checks": [
+        {"type": "not_empty", "step": 0},
+        {"type": "contains", "step": 0, "text": "def convert", "case_sensitive": true},
+        {"type": "contains", "step": 0, "text": "ValueError", "case_sensitive": true},
+        {"type": "not_contains", "step": 0, "text": "TODO"},
+        {"type": "not_contains", "step": 0, "text": "```"},
+        {
+          "type": "llm_judge",
+          "step": 0,
+          "rubric": "Implementation must pass ALL tests: C-to-F (F=C*9/5+32), F-to-C (C=(F-32)*5/9), C-to-K (K=C+273.15), K-to-C, F-to-K (via C), same-unit passthrough, invalid unit raises ValueError, temps below absolute zero (-273.15C/-459.67F/0K) raise ValueError. All returns rounded to 2 decimal places. Must be syntactically correct Python.",
+          "min_score": 0.8
+        }
+      ]
+    }
+  ]
+}

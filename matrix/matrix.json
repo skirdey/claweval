@@ -55,7 +55,15 @@
     "matrix_openclaw_browser.json",
     "matrix_openclaw_webfetch.json",
     "matrix_openclaw_skills.json",
-    "matrix_browser_install.json"
+    "matrix_browser_install.json",
+    "matrix_debugging.json",
+    "matrix_data_processing.json",
+    "matrix_sysadmin.json",
+    "matrix_code_gen.json",
+    "matrix_pipeline.json",
+    "matrix_security.json",
+    "matrix_exploration.json",
+    "matrix_robustness.json"
   ],
   "suite_metadata": {
     "matrix_basic": {
@@ -105,6 +113,38 @@
     "matrix_browser_install": {
       "capability_tags": ["advanced", "browser", "install", "tool_use"],
       "scoring_class": "advanced"
+    },
+    "matrix_debugging": {
+      "capability_tags": ["core", "debugging", "reasoning"],
+      "scoring_class": "core"
+    },
+    "matrix_data_processing": {
+      "capability_tags": ["core", "data", "reasoning"],
+      "scoring_class": "core"
+    },
+    "matrix_sysadmin": {
+      "capability_tags": ["core", "sysadmin", "reasoning"],
+      "scoring_class": "core"
+    },
+    "matrix_code_gen": {
+      "capability_tags": ["core", "code_generation", "reasoning"],
+      "scoring_class": "core"
+    },
+    "matrix_pipeline": {
+      "capability_tags": ["core", "pipeline", "tools", "oracles"],
+      "scoring_class": "core"
+    },
+    "matrix_security": {
+      "capability_tags": ["core", "security", "reasoning"],
+      "scoring_class": "core"
+    },
+    "matrix_exploration": {
+      "capability_tags": ["advanced", "exploration", "tools"],
+      "scoring_class": "advanced"
+    },
+    "matrix_robustness": {
+      "capability_tags": ["core", "robustness", "reasoning"],
+      "scoring_class": "core"
     }
   },
   "judge_backend": {

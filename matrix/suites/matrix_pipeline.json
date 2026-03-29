@@ -1,0 +1,124 @@
+{
+  "name": "matrix_pipeline",
+  "description": "Multi-step workflows: ETL pipelines, conditional logic, retry patterns.",
+  "backend": {
+    "type": "http",
+    "url": "http://localhost:5000/chat"
+  },
+  "global_repeats": 1,
+  "scoring_class": "core",
+  "capability_tags": ["core", "pipeline", "tools", "oracles"],
+  "episodes": [
+    {
+      "id": "etl_merge_and_post",
+      "description": "Fetch two data sources from oracle, merge, and post combined result.",
+      "steps": [
+        {
+          "type": "http_probe",
+          "name": "clear_events",
+          "method": "DELETE",
+          "url": "http://localhost:5010/events?run_id=etl_pipeline"
+        },
+        {
+          "type": "user",
+          "name": "run_etl",
+          "input": "Perform this ETL pipeline:\n1. Fetch JSON from http://oracle-sink:5010/fixtures/article_a\n2. Fetch JSON from http://oracle-sink:5010/fixtures/article_b\n3. Merge both records into a single JSON array\n4. Add a field \"merged_at\" with the current ISO 8601 timestamp to each record\n5. POST to http://oracle-sink:5010/events with body: {\"run_id\": \"etl_pipeline\", \"session_id\": \"etl_1\", \"event_type\": \"etl_complete\", \"payload\": <the merged array>}\n\nReply with exactly: DONE:<count> where count is the number of records merged."
+        },
+        {
+          "type": "poll",
+          "name": "poll_result",
+          "interval_ms": 1000,
+          "timeout_ms": 30000,
+          "probe": {
+            "type": "http_probe",
+            "url": "http://localhost:5010/events?run_id=etl_pipeline&event_type=etl_complete",
+            "method": "GET"
+          },
+          "until": {
+            "type": "contains_text",
+            "text": "etl_complete"
+          }
+        }
+      ],
+      "checks": [
+        {"type": "contains", "step": 1, "text": "DONE:2"},
+        {"type": "eventually_contains", "step": 2, "text": "etl_complete", "within_ms": 30000},
+        {"type": "contains", "step": 2, "text": "article_a", "case_sensitive": true},
+        {"type": "contains", "step": 2, "text": "article_b", "case_sensitive": true},
+        {"type": "contains", "step": 2, "text": "merged_at", "case_sensitive": true}
+      ]
+    },
+    {
+      "id": "conditional_config_workflow",
+      "description": "Read config, fetch data, apply conditional validation, report result.",
+      "steps": [
+        {
+          "type": "http_probe",
+          "name": "clear_events",
+          "method": "DELETE",
+          "url": "http://localhost:5010/events?run_id=conditional"
+        },
+        {
+          "type": "user",
+          "name": "conditional_task",
+          "input": "Follow these instructions based on the config below.\n\nConfig:\n{\"mode\": \"strict\", \"max_quote_length\": 25, \"data_url\": \"http://oracle-sink:5010/fixtures/article_a\", \"report_to\": \"http://oracle-sink:5010/events\"}\n\nSteps:\n1. Fetch JSON from the data_url\n2. Extract the \"quote\" field\n3. If mode is \"strict\": check if the quote length exceeds max_quote_length\n4. If validation PASSES (within limit): POST to report_to with {\"run_id\": \"conditional\", \"session_id\": \"cond_1\", \"event_type\": \"validation_passed\", \"payload\": {\"quote\": \"<the quote>\", \"length\": <actual length>}}\n5. If validation FAILS (exceeds limit): POST with event_type \"validation_failed\" and same payload structure\n\nReply with PASS or FAIL followed by the quote length. Example: FAIL:42"
+        },
+        {
+          "type": "poll",
+          "name": "poll_result",
+          "interval_ms": 1000,
+          "timeout_ms": 15000,
+          "probe": {
+            "type": "http_probe",
+            "url": "http://localhost:5010/events?run_id=conditional",
+            "method": "GET"
+          },
+          "until": {
+            "type": "contains_text",
+            "text": "validation_"
+          }
+        }
+      ],
+      "checks": [
+        {"type": "contains", "step": 1, "text": "FAIL", "case_sensitive": true},
+        {"type": "eventually_contains", "step": 2, "text": "validation_failed", "within_ms": 15000},
+        {"type": "contains", "step": 2, "text": "Aurora", "case_sensitive": true}
+      ]
+    },
+    {
+      "id": "retry_flaky_endpoint",
+      "description": "Fetch from a flaky endpoint that requires retry logic to succeed.",
+      "setup": [
+        {
+          "type": "http_probe",
+          "name": "reset_counter",
+          "method": "DELETE",
+          "url": "http://localhost:5010/fixtures/flaky/retry1"
+        }
+      ],
+      "steps": [
+        {
+          "type": "user",
+          "name": "fetch_with_retry",
+          "input": "Fetch data from http://oracle-sink:5010/fixtures/flaky/retry1 — this endpoint returns HTTP 503 for the first few requests before succeeding with HTTP 200. Implement retry logic: wait at least 1 second between attempts.\n\nOnce you get a 200 response, extract the \"token\" field. Reply as strict JSON: {\"token\": \"<value>\", \"attempts\": <total requests made>}. No markdown, just JSON."
+        }
+      ],
+      "checks": [
+        {
+          "type": "json_schema",
+          "step": 0,
+          "schema": {
+            "type": "object",
+            "required": ["token", "attempts"],
+            "properties": {
+              "token": {"type": "string"},
+              "attempts": {"type": "integer"}
+            }
+          }
+        },
+        {"type": "json_pointer_equals", "step": 0, "pointer": "/token", "expected": "FLAKY-OK-RETRY1"},
+        {"type": "within_time_window_ms", "step": 0, "min_ms": 2000, "max_ms": 60000}
+      ]
+    }
+  ]
+}
