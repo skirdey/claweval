@@ -11,6 +11,15 @@ EVENTS = []
 UPLOADS = {}  # upload_id -> {"data": bytes, "size": int, "sha256": str, "content_type": str, "ts": int}
 LOCK = threading.Lock()
 START_TS = int(time.time() * 1000)
+COUNTERS = {}  # per-key request counters for /fixtures/flaky endpoint
+DISCOVERY_ITEMS = [
+    {"id": 1, "name": "Laptop Stand", "price": 49.99, "category": "Office", "in_stock": True},
+    {"id": 2, "name": "USB-C Hub", "price": 35.00, "category": "Electronics", "in_stock": True},
+    {"id": 3, "name": "Desk Pad", "price": 24.95, "category": "Office", "in_stock": False},
+    {"id": 4, "name": "Monitor Light", "price": 59.99, "category": "Electronics", "in_stock": True},
+    {"id": 5, "name": "Cable Clips", "price": 8.99, "category": "Office", "in_stock": True},
+]
+DISCOVERY_NEXT_ID = 6
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -22,10 +31,20 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _html(self, code, html):
+        body = html.encode("utf-8")
+        self.send_response(code)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
     def do_GET(self):
         u = urlparse(self.path)
         if u.path == "/health":
             return self._json(200, {"ok": True, "events": len(EVENTS)})
+
+        # --- Fixtures ---
         if u.path == "/fixtures/article_a":
             return self._json(
                 200,
@@ -79,23 +98,18 @@ class Handler(BaseHTTPRequestHandler):
                 },
             )
         if u.path == "/fixtures/browser/target_page":
-            html = (
+            return self._html(
+                200,
                 "<!DOCTYPE html>\n"
                 "<html><head><title>ClawEval Target Page</title></head>\n"
                 '<body style="background:white;font-family:monospace;padding:40px">\n'
                 '<h1 id="marker">CLAWEVAL-BROWSER-MARKER-7742</h1>\n'
                 "<p>This page is served by the oracle-sink fixture server.</p>\n"
-                "</body></html>\n"
+                "</body></html>\n",
             )
-            body = html.encode("utf-8")
-            self.send_response(200)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
-            return
         if u.path == "/fixtures/browser/js_challenge":
-            html = (
+            return self._html(
+                200,
                 "<!DOCTYPE html>\n"
                 "<html><head><title>JS Challenge</title></head>\n"
                 "<body>\n"
@@ -107,15 +121,31 @@ class Handler(BaseHTTPRequestHandler):
                 '  document.querySelector("p").textContent = "Token revealed.";\n'
                 "}, 2000);\n"
                 "</script>\n"
-                "</body></html>\n"
+                "</body></html>\n",
             )
-            body = html.encode("utf-8")
-            self.send_response(200)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
-            return
+
+        # --- Flaky endpoint: returns 503 until Nth request, then 200 ---
+        if u.path.startswith("/fixtures/flaky/"):
+            key = u.path[len("/fixtures/flaky/"):]
+            q = parse_qs(u.query)
+            threshold = int(q.get("after", ["3"])[0])
+            with LOCK:
+                COUNTERS[key] = COUNTERS.get(key, 0) + 1
+                count = COUNTERS[key]
+            if count < threshold:
+                return self._json(503, {
+                    "ready": False,
+                    "attempt": count,
+                    "needs": threshold,
+                    "retry_after_seconds": 1,
+                })
+            return self._json(200, {
+                "ready": True,
+                "token": "FLAKY-OK-" + key.upper(),
+                "attempt": count,
+            })
+
+        # --- Uploads ---
         if u.path.startswith("/uploads/"):
             upload_id = u.path[len("/uploads/"):]
             with LOCK:
@@ -130,6 +160,8 @@ class Handler(BaseHTTPRequestHandler):
                 "content_type": entry["content_type"],
                 "ts": entry["ts"],
             })
+
+        # --- Events ---
         if u.path == "/events":
             q = parse_qs(u.query)
             run_id = q.get("run_id", [None])[0]
@@ -144,7 +176,67 @@ class Handler(BaseHTTPRequestHandler):
             if event_type is not None:
                 out = [e for e in out if e.get("event_type") == event_type]
             return self._json(200, {"events": out, "count": len(out)})
-        return self._json(404, {"error": "not found"})
+
+        # --- API v1: Discovery endpoints ---
+        if u.path in ("/api/v1", "/api/v1/"):
+            return self._json(200, {
+                "service": "inventory",
+                "version": "1.3.0",
+                "docs": "not available",
+                "hint": "try GET /api/v1/status for service info",
+            })
+        if u.path == "/api/v1/status":
+            uptime = (int(time.time() * 1000) - START_TS) // 1000
+            with LOCK:
+                item_count = len(DISCOVERY_ITEMS)
+            return self._json(200, {
+                "service": "inventory",
+                "version": "1.3.0",
+                "uptime_seconds": uptime,
+                "total_items": item_count,
+                "endpoints": [
+                    "GET /api/v1/items",
+                    "GET /api/v1/items/{id}",
+                    "POST /api/v1/items",
+                    "DELETE /api/v1/items/{id}",
+                ],
+            })
+        if u.path == "/api/v1/items":
+            q = parse_qs(u.query)
+            page = int(q.get("page", ["1"])[0])
+            per_page = int(q.get("per_page", ["10"])[0])
+            category = q.get("category", [None])[0]
+            with LOCK:
+                items = [dict(i) for i in DISCOVERY_ITEMS]
+            if category:
+                items = [i for i in items if i["category"].lower() == category.lower()]
+            start = (page - 1) * per_page
+            page_items = items[start:start + per_page]
+            return self._json(200, {
+                "items": page_items,
+                "total": len(items),
+                "page": page,
+                "per_page": per_page,
+            })
+        if u.path.startswith("/api/v1/items/"):
+            item_id_str = u.path[len("/api/v1/items/"):]
+            try:
+                item_id = int(item_id_str)
+            except ValueError:
+                return self._json(400, {"error": "invalid item id", "received": item_id_str})
+            with LOCK:
+                item = next((dict(i) for i in DISCOVERY_ITEMS if i["id"] == item_id), None)
+            if item is None:
+                return self._json(404, {"error": "item not found", "id": item_id})
+            return self._json(200, item)
+
+        return self._json(404, {
+            "error": "not found",
+            "available_paths": [
+                "/health", "/events", "/fixtures/*", "/uploads/*",
+                "/api/v1/status", "/api/v1/items",
+            ],
+        })
 
     def do_POST(self):
         u = urlparse(self.path)
@@ -170,6 +262,29 @@ class Handler(BaseHTTPRequestHandler):
                 "sha256": sha,
                 "content_type": content_type,
             })
+        if u.path == "/api/v1/items":
+            try:
+                n = int(self.headers.get("Content-Length", "0"))
+                raw = self.rfile.read(n).decode("utf-8")
+                data = json.loads(raw or "{}")
+            except Exception as e:
+                return self._json(400, {"error": f"invalid json: {e}"})
+            required = ["name", "price", "category"]
+            missing = [f for f in required if f not in data]
+            if missing:
+                return self._json(400, {"error": "missing required fields", "missing": missing})
+            global DISCOVERY_NEXT_ID
+            with LOCK:
+                item = {
+                    "id": DISCOVERY_NEXT_ID,
+                    "name": data["name"],
+                    "price": data["price"],
+                    "category": data["category"],
+                    "in_stock": data.get("in_stock", True),
+                }
+                DISCOVERY_ITEMS.append(item)
+                DISCOVERY_NEXT_ID += 1
+            return self._json(201, item)
         if u.path != "/events":
             return self._json(404, {"error": "not found"})
         try:
@@ -199,6 +314,23 @@ class Handler(BaseHTTPRequestHandler):
             if removed is None:
                 return self._json(404, {"error": "not found", "upload_id": upload_id})
             return self._json(200, {"ok": True, "deleted": upload_id})
+        if u.path.startswith("/fixtures/flaky/"):
+            key = u.path[len("/fixtures/flaky/"):]
+            with LOCK:
+                COUNTERS.pop(key, None)
+            return self._json(200, {"ok": True, "reset": key})
+        if u.path.startswith("/api/v1/items/"):
+            item_id_str = u.path[len("/api/v1/items/"):]
+            try:
+                item_id = int(item_id_str)
+            except ValueError:
+                return self._json(400, {"error": "invalid item id"})
+            with LOCK:
+                idx = next((i for i, item in enumerate(DISCOVERY_ITEMS) if item["id"] == item_id), None)
+                if idx is None:
+                    return self._json(404, {"error": "item not found", "id": item_id})
+                removed = DISCOVERY_ITEMS.pop(idx)
+            return self._json(200, {"ok": True, "deleted": removed})
         if u.path != "/events":
             return self._json(404, {"error": "not found"})
         q = parse_qs(u.query)

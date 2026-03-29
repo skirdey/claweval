@@ -1,0 +1,98 @@
+{
+  "name": "matrix_data_processing",
+  "description": "Data wrangling: CSV cleaning, cross-format joins, and format discovery.",
+  "backend": {
+    "type": "http",
+    "url": "http://localhost:5000/chat"
+  },
+  "global_repeats": 1,
+  "scoring_class": "core",
+  "capability_tags": ["core", "data", "reasoning"],
+  "episodes": [
+    {
+      "id": "csv_cleaning_and_normalization",
+      "description": "Clean a messy CSV with mixed date formats, duplicates, and inconsistent currency.",
+      "steps": [
+        {
+          "type": "user",
+          "name": "clean_csv",
+          "input": "Here is a messy CSV dataset:\n\nid,date,product,revenue,region\n1,2024-01-15,Widget A,\"$1,234.56\",East\n2,01/20/2024,Widget B,567.89,West\n3,Jan 25 2024,Widget A,$890.12,East\n4,2024-02-01,Widget C,\"$2,345.67\",North\n5,02/10/2024,Widget B,$456.78,West\n6,Feb 15 2024,Widget A,1234.56,East\n7,2024-02-20,Widget C,$789.01,North\n1,2024-01-15,Widget A,\"$1,234.56\",East\n8,03/01/2024,Widget B,\"$1,567.89\",West\n9,Mar 5 2024,Widget A,$234.56,East\n10,2024-03-10,Widget C,890.12,North\n11,2024-03-15,Widget B,,West\n12,03/20/2024,Widget A,$567.89,East\n5,02/10/2024,Widget B,$456.78,West\n13,2024-03-25,Widget C,\"$1,123.45\",North\n\nClean this data: (1) Normalize ALL dates to YYYY-MM-DD, (2) Remove duplicate rows (same id), (3) Strip $ signs and commas from revenue — plain numbers only, (4) Replace missing revenue with 0.\n\nReply as strict JSON: {\"row_count\": <after dedup>, \"cleaned_csv\": \"<full CSV with header>\", \"issues_found\": [\"<issue1>\", ...]}. No markdown, just JSON."
+        }
+      ],
+      "checks": [
+        {
+          "type": "json_schema",
+          "step": 0,
+          "schema": {
+            "type": "object",
+            "required": ["row_count", "cleaned_csv", "issues_found"],
+            "properties": {
+              "row_count": {"type": "integer"},
+              "cleaned_csv": {"type": "string"},
+              "issues_found": {"type": "array", "items": {"type": "string"}}
+            }
+          }
+        },
+        {"type": "json_pointer_equals", "step": 0, "pointer": "/row_count", "expected": 13},
+        {"type": "not_contains", "step": 0, "text": "01/20/2024"},
+        {"type": "not_contains", "step": 0, "text": "Jan 25"},
+        {"type": "json_array_length", "step": 0, "pointer": "/issues_found", "min": 3}
+      ]
+    },
+    {
+      "id": "multi_format_data_join",
+      "description": "Join data from JSON, CSV, and XML sources into a unified structure.",
+      "steps": [
+        {
+          "type": "user",
+          "name": "join_data",
+          "input": "Join these three data sources into a unified dataset.\n\nusers.json:\n[{\"user_id\":1,\"name\":\"Alice Chen\",\"email\":\"alice@example.com\"},{\"user_id\":2,\"name\":\"Bob Smith\",\"email\":\"bob@corp.io\"},{\"user_id\":3,\"name\":\"Carol Diaz\",\"email\":\"carol@example.com\"}]\n\norders.csv:\norder_id,user_id,product_id,amount\n101,1,P001,29.99\n102,1,P002,49.99\n103,2,P001,29.99\n104,3,P003,15.50\n105,2,P003,15.50\n\nproducts.xml:\n<products><product id=\"P001\"><name>Wireless Mouse</name><category>Electronics</category></product><product id=\"P002\"><name>Desk Lamp</name><category>Home Office</category></product><product id=\"P003\"><name>Notebook</name><category>Stationery</category></product></products>\n\nFor each user, produce a summary with their orders including product details. Reply as a strict JSON array. Each element: {\"user_name\": ..., \"email\": ..., \"orders\": [{\"product_name\": ..., \"category\": ..., \"amount\": ...}]}. Include all 3 users. No markdown, just JSON."
+        }
+      ],
+      "checks": [
+        {"type": "not_empty", "step": 0},
+        {"type": "contains", "step": 0, "text": "Alice Chen"},
+        {"type": "contains", "step": 0, "text": "Bob Smith"},
+        {"type": "contains", "step": 0, "text": "Carol Diaz"},
+        {"type": "contains", "step": 0, "text": "Wireless Mouse"},
+        {"type": "contains", "step": 0, "text": "Electronics"},
+        {"type": "contains", "step": 0, "text": "Stationery"},
+        {
+          "type": "llm_judge",
+          "step": 0,
+          "rubric": "Valid JSON array with 3 elements. Alice has 2 orders: Wireless Mouse/Electronics/$29.99 and Desk Lamp/Home Office/$49.99. Bob has 2 orders: Wireless Mouse/Electronics/$29.99 and Notebook/Stationery/$15.50. Carol has 1 order: Notebook/Stationery/$15.50. Each order must have product_name, category, and amount. All joins between user_id, product_id must be correct.",
+          "min_score": 0.7
+        }
+      ]
+    },
+    {
+      "id": "ndjson_format_discovery",
+      "description": "Recognize and parse NDJSON (newline-delimited JSON) format.",
+      "steps": [
+        {
+          "type": "user",
+          "name": "parse_ndjson",
+          "input": "Here is the content of a data file. It is NOT standard JSON — figure out the format and parse it correctly.\n\n{\"id\":1,\"name\":\"Alice\",\"score\":82.5}\n{\"id\":2,\"name\":\"Bob\",\"score\":91.0}\n{\"id\":3,\"name\":\"Carol\",\"score\":76.3}\n{\"id\":4,\"name\":\"Dave\",\"score\":88.7}\n{\"id\":5,\"name\":\"Eve\",\"score\":95.2}\n{\"id\":6,\"name\":\"Frank\",\"score\":67.8}\n{\"id\":7,\"name\":\"Grace\",\"score\":73.4}\n{\"id\":8,\"name\":\"Hank\",\"score\":84.1}\n{\"id\":9,\"name\":\"Iris\",\"score\":90.6}\n{\"id\":10,\"name\":\"Jack\",\"score\":79.4}\n\nCompute the average of the score field across all records, rounded to exactly 2 decimal places. Reply as strict JSON: {\"format\": \"<name of this data format>\", \"record_count\": <N>, \"average_score\": <number>}. No markdown, just JSON."
+        }
+      ],
+      "checks": [
+        {
+          "type": "json_schema",
+          "step": 0,
+          "schema": {
+            "type": "object",
+            "required": ["format", "record_count", "average_score"],
+            "properties": {
+              "format": {"type": "string"},
+              "record_count": {"type": "integer"},
+              "average_score": {"type": "number"}
+            }
+          }
+        },
+        {"type": "json_pointer_equals", "step": 0, "pointer": "/record_count", "expected": 10},
+        {"type": "json_pointer_equals", "step": 0, "pointer": "/average_score", "expected": 82.9},
+        {"type": "contains", "step": 0, "text": "json", "case_sensitive": false}
+      ]
+    }
+  ]
+}

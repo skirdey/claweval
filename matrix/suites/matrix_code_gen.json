@@ -1,0 +1,62 @@
+{
+  "name": "matrix_code_gen",
+  "description": "Code generation and refactoring: implement from spec, refactor with behavioral equivalence.",
+  "backend": {
+    "type": "http",
+    "url": "http://localhost:5000/chat"
+  },
+  "global_repeats": 1,
+  "scoring_class": "core",
+  "capability_tags": ["core", "code_generation", "reasoning"],
+  "episodes": [
+    {
+      "id": "rest_api_from_spec",
+      "description": "Generate a complete Flask REST API from a specification.",
+      "steps": [
+        {
+          "type": "user",
+          "name": "generate_api",
+          "input": "Implement a Python Flask REST API with these endpoints:\n\n1. GET /items — Return all items as JSON array. Support optional ?category= filter.\n2. POST /items — Create item. Body: {\"name\": string, \"price\": number, \"category\": string} (all required). Return 201 with created item (including auto-generated id). Return 400 with {\"error\": \"...\"} if fields missing.\n3. GET /items/<id> — Return single item by integer id. Return 404 with {\"error\": \"not found\"} if missing.\n4. DELETE /items/<id> — Delete item. Return 200 with {\"ok\": true}. Return 404 if missing.\n\nUse in-memory list storage. Auto-increment IDs starting from 1. Pre-seed: [{id:1, name:\"Widget\", price:9.99, category:\"Tools\"}]. Server runs on port 9090.\n\nReply with ONLY the complete Python code. No markdown fences, no explanation."
+        }
+      ],
+      "checks": [
+        {"type": "not_empty", "step": 0},
+        {"type": "contains", "step": 0, "text": "flask", "case_sensitive": false},
+        {"type": "contains", "step": 0, "text": "/items", "case_sensitive": true},
+        {"type": "contains", "step": 0, "text": "404", "case_sensitive": true},
+        {"type": "contains", "step": 0, "text": "400", "case_sensitive": true},
+        {"type": "contains", "step": 0, "text": "201", "case_sensitive": true},
+        {
+          "type": "llm_judge",
+          "step": 0,
+          "rubric": "The code must be a complete, runnable Flask app. Verify: (1) GET /items returns JSON array and supports category filter, (2) POST /items validates required fields — returns 400 if missing, 201 on success with auto-generated id, (3) GET /items/<id> returns 404 for missing items, (4) DELETE /items/<id> returns 404 for missing, (5) In-memory storage with auto-increment IDs, (6) Pre-seeded with Widget, (7) Runs on port 9090, (8) No syntax errors. Score 0 if incomplete or has obvious bugs.",
+          "min_score": 0.7
+        }
+      ]
+    },
+    {
+      "id": "refactor_preserve_behavior",
+      "description": "Refactor spaghetti code into functions while keeping identical output.",
+      "steps": [
+        {
+          "type": "user",
+          "name": "refactor",
+          "input": "Refactor this Python script into clean code with functions. The output MUST be identical for any input.\n\nOriginal (reads numbers from stdin, one per line, until EOF):\n\nimport sys\ndata = []\nfor line in sys.stdin:\n    line = line.strip()\n    if line == '':\n        continue\n    try:\n        n = float(line)\n        data.append(n)\n    except:\n        pass\nif len(data) == 0:\n    print('NO DATA')\nelse:\n    total = 0\n    for x in data:\n        total = total + x\n    avg = total / len(data)\n    mn = data[0]\n    mx = data[0]\n    for x in data:\n        if x < mn:\n            mn = x\n        if x > mx:\n            mx = x\n    sorted_data = []\n    for i in range(len(data)):\n        min_idx = i\n        for j in range(i+1, len(data)):\n            if data[j] < data[min_idx]:\n                min_idx = j\n        data[i], data[min_idx] = data[min_idx], data[i]\n        sorted_data.append(data[i])\n    if len(sorted_data) % 2 == 0:\n        median = (sorted_data[len(sorted_data)//2-1] + sorted_data[len(sorted_data)//2]) / 2\n    else:\n        median = sorted_data[len(sorted_data)//2]\n    print('COUNT: ' + str(len(sorted_data)))\n    print('SUM: ' + str(total))\n    print('AVG: ' + str(round(avg, 2)))\n    print('MIN: ' + str(mn))\n    print('MAX: ' + str(mx))\n    print('MEDIAN: ' + str(median))\n\nRequirements: at least 3 named functions, same input/output behavior. Reply with ONLY the Python code. No markdown fences, no explanation."
+        }
+      ],
+      "checks": [
+        {"type": "not_empty", "step": 0},
+        {"type": "contains", "step": 0, "text": "def ", "case_sensitive": true},
+        {"type": "contains", "step": 0, "text": "COUNT:", "case_sensitive": true},
+        {"type": "contains", "step": 0, "text": "MEDIAN:", "case_sensitive": true},
+        {"type": "not_contains", "step": 0, "text": "```"},
+        {
+          "type": "llm_judge",
+          "step": 0,
+          "rubric": "Must have at least 3 named functions. Must be functionally equivalent: same output format (COUNT/SUM/AVG/MIN/MAX/MEDIAN), same edge case ('NO DATA' for empty input), same rounding (round(avg,2)), same median calculation (average of two middle values for even count). Must read from stdin and print to stdout. Score 0 if output format differs or fewer than 3 functions.",
+          "min_score": 0.7
+        }
+      ]
+    }
+  ]
+}

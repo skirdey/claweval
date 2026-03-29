@@ -1,0 +1,90 @@
+{
+  "name": "matrix_security",
+  "description": "Security awareness: secret detection and redaction, firewall rule analysis.",
+  "backend": {
+    "type": "http",
+    "url": "http://localhost:5000/chat"
+  },
+  "global_repeats": 1,
+  "scoring_class": "core",
+  "capability_tags": ["core", "security", "reasoning"],
+  "episodes": [
+    {
+      "id": "secret_redaction_from_logs",
+      "description": "Identify and redact multiple types of secrets embedded in application logs.",
+      "steps": [
+        {
+          "type": "user",
+          "name": "redact_secrets",
+          "input": "Scan these application logs and redact ALL secrets/credentials. Replace each secret value with [REDACTED], preserving the surrounding text.\n\n2026-03-28 08:01:12 INFO  Starting application server on port 8080\n2026-03-28 08:01:13 DEBUG Connecting to database: postgresql://appuser:S3cret!Pass@db.internal:5432/myapp\n2026-03-28 08:01:14 INFO  Database connection established\n2026-03-28 08:01:15 DEBUG AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE\n2026-03-28 08:01:15 DEBUG AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY\n2026-03-28 08:01:16 INFO  S3 bucket connected: my-app-data\n2026-03-28 08:01:17 INFO  User auth service started\n2026-03-28 08:01:18 DEBUG Session token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U\n2026-03-28 08:01:19 INFO  Health check endpoint at /health\n2026-03-28 08:01:20 INFO  Using API key: sk-proj-abc123def456ghi789jkl012mno345pqr678\n2026-03-28 08:01:21 DEBUG GitHub token: ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdef12\n2026-03-28 08:01:22 INFO  Worker pool initialized (4 threads)\n2026-03-28 08:01:23 INFO  Application ready\n\nReply as strict JSON with keys:\n- redacted_log: the full log with secrets replaced by [REDACTED] (keep all non-secret text exactly as-is)\n- secrets_found: array of {\"type\": \"<kind of secret>\", \"line_number\": <N>}\n\nDo NOT include actual secret values anywhere in your response. No markdown, just JSON."
+        }
+      ],
+      "checks": [
+        {
+          "type": "json_schema",
+          "step": 0,
+          "schema": {
+            "type": "object",
+            "required": ["redacted_log", "secrets_found"],
+            "properties": {
+              "redacted_log": {"type": "string"},
+              "secrets_found": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["type", "line_number"],
+                  "properties": {
+                    "type": {"type": "string"},
+                    "line_number": {"type": "integer"}
+                  }
+                }
+              }
+            }
+          }
+        },
+        {"type": "json_pointer_contains", "step": 0, "pointer": "/redacted_log", "text": "[REDACTED]", "case_sensitive": true},
+        {"type": "json_pointer_contains", "step": 0, "pointer": "/redacted_log", "text": "Starting application server", "case_sensitive": true},
+        {"type": "not_contains", "step": 0, "text": "AKIAIOSFODNN7EXAMPLE"},
+        {"type": "not_contains", "step": 0, "text": "wJalrXUtnFEMI"},
+        {"type": "not_contains", "step": 0, "text": "S3cret!Pass"},
+        {"type": "not_contains", "step": 0, "text": "ghp_ABCDEFGH"},
+        {"type": "json_array_length", "step": 0, "pointer": "/secrets_found", "min": 5}
+      ]
+    },
+    {
+      "id": "firewall_rule_audit",
+      "description": "Analyze iptables rules for security issues, duplicates, and ordering problems.",
+      "steps": [
+        {
+          "type": "user",
+          "name": "audit_firewall",
+          "input": "Audit these iptables rules for security issues:\n\n*filter\n:INPUT ACCEPT [0:0]\n:FORWARD DROP [0:0]\n:OUTPUT ACCEPT [0:0]\n-A INPUT -i lo -j ACCEPT\n-A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT\n-A INPUT -p tcp --dport 22 -j ACCEPT\n-A INPUT -p tcp --dport 80 -j ACCEPT\n-A INPUT -p tcp --dport 443 -j ACCEPT\n-A INPUT -p tcp --dport 3306 -s 10.0.0.0/8 -j ACCEPT\n-A INPUT -p tcp --dport 22 -j ACCEPT\n-A INPUT -p icmp -j ACCEPT\n-A INPUT -j ACCEPT\n-A INPUT -p tcp --dport 8080 -s 192.168.1.0/24 -j ACCEPT\n-A OUTPUT -j ACCEPT\nCOMMIT\n\nReply as strict JSON:\n- critical_issues: array of strings (immediate security risks)\n- warnings: array of strings (concerning but not critical)\n- redundant_rules: array of strings (duplicates or unreachable rules)\n- recommendation: one paragraph with the most important changes\n\nNo markdown, just JSON."
+        }
+      ],
+      "checks": [
+        {
+          "type": "json_schema",
+          "step": 0,
+          "schema": {
+            "type": "object",
+            "required": ["critical_issues", "warnings", "redundant_rules", "recommendation"],
+            "properties": {
+              "critical_issues": {"type": "array", "items": {"type": "string"}},
+              "warnings": {"type": "array", "items": {"type": "string"}},
+              "redundant_rules": {"type": "array", "items": {"type": "string"}},
+              "recommendation": {"type": "string"}
+            }
+          }
+        },
+        {"type": "json_array_length", "step": 0, "pointer": "/critical_issues", "min": 1},
+        {"type": "json_array_length", "step": 0, "pointer": "/redundant_rules", "min": 1},
+        {
+          "type": "llm_judge",
+          "step": 0,
+          "rubric": "Must identify: (1) CRITICAL: '-A INPUT -j ACCEPT' (blanket accept all inbound) makes all subsequent rules unreachable. (2) SSH port 22 is open to all IPs without rate limiting. (3) SSH rule is duplicated. (4) The port 8080 rule restricted to 192.168.1.0/24 is unreachable because blanket ACCEPT comes before it. Recommendation should include: remove blanket ACCEPT, set default DROP policy for INPUT, restrict SSH, remove duplicate rules, reorder so restricted rules are reachable.",
+          "min_score": 0.6
+        }
+      ]
+    }
+  ]
+}

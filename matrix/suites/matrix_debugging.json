@@ -1,0 +1,124 @@
+{
+  "name": "matrix_debugging",
+  "description": "Debugging and incident response: log triage, config repair, bug identification.",
+  "backend": {
+    "type": "http",
+    "url": "http://localhost:5000/chat"
+  },
+  "global_repeats": 1,
+  "scoring_class": "core",
+  "capability_tags": ["core", "debugging", "reasoning"],
+  "episodes": [
+    {
+      "id": "log_triage_root_cause",
+      "description": "Identify root cause from crash logs — look past the stack trace to the upstream issue.",
+      "steps": [
+        {
+          "type": "user",
+          "name": "analyze_logs",
+          "input": "An application crashed. Here are the last 20 lines of /var/log/app.log:\n\n2026-03-28 10:14:01 INFO  [worker-3] Processing batch #4471\n2026-03-28 10:14:01 INFO  [worker-1] Heartbeat OK\n2026-03-28 10:14:02 INFO  [worker-2] Processing batch #4472\n2026-03-28 10:14:03 INFO  [pool-mgr] Active connections: 48/50\n2026-03-28 10:14:04 INFO  [worker-3] Processing batch #4473\n2026-03-28 10:14:05 WARN  [pool-mgr] Connection pool near capacity: 49/50\n2026-03-28 10:14:06 INFO  [worker-1] Processing batch #4474\n2026-03-28 10:14:07 INFO  [worker-2] Processing batch #4475\n2026-03-28 10:14:08 WARN  [pool-mgr] Connection pool EXHAUSTED: 50/50 — new requests will block\n2026-03-28 10:14:08 INFO  [worker-3] Attempting DB query for batch #4476\n2026-03-28 10:14:09 INFO  [worker-1] Heartbeat OK\n2026-03-28 10:14:10 WARN  [worker-3] Timeout waiting for DB connection (5000ms)\n2026-03-28 10:14:10 INFO  [worker-2] Processing batch #4477\n2026-03-28 10:14:11 INFO  [worker-1] Processing batch #4478\n2026-03-28 10:14:12 ERROR [worker-3] java.lang.NullPointerException: Cannot invoke method on null connection\n\tat com.app.db.QueryExecutor.execute(QueryExecutor.java:142)\n\tat com.app.worker.BatchProcessor.processBatch(BatchProcessor.java:87)\n\tat com.app.worker.WorkerThread.run(WorkerThread.java:34)\n2026-03-28 10:14:12 ERROR [main] Unhandled exception in worker-3, initiating shutdown\n2026-03-28 10:14:12 INFO  [main] Shutting down gracefully...\n\nIdentify the ROOT CAUSE of the crash (not just the final exception). Reply as strict JSON with keys: root_cause (the actual underlying problem), exception (the Java exception thrown), fix (suggested remediation). No markdown, just JSON."
+        }
+      ],
+      "checks": [
+        {
+          "type": "json_schema",
+          "step": 0,
+          "schema": {
+            "type": "object",
+            "required": ["root_cause", "exception", "fix"],
+            "properties": {
+              "root_cause": {"type": "string"},
+              "exception": {"type": "string"},
+              "fix": {"type": "string"}
+            }
+          }
+        },
+        {"type": "json_pointer_contains", "step": 0, "pointer": "/root_cause", "text": "pool", "case_sensitive": false},
+        {"type": "json_pointer_contains", "step": 0, "pointer": "/exception", "text": "NullPointerException", "case_sensitive": false},
+        {
+          "type": "llm_judge",
+          "step": 0,
+          "rubric": "The agent must identify that the root cause is connection pool exhaustion (50/50 connections used, new requests blocking), which caused worker-3's DB query to time out and receive a null connection, leading to the NullPointerException. The fix should address the pool issue (increase pool size, add connection timeout handling, implement backpressure, or fix connection leaks). Score 0 if the agent says the root cause IS the NullPointerException without mentioning connection pool exhaustion.",
+          "min_score": 0.6
+        }
+      ]
+    },
+    {
+      "id": "broken_config_multifault",
+      "description": "Find and describe three different types of errors in a YAML config file.",
+      "steps": [
+        {
+          "type": "user",
+          "name": "fix_config",
+          "input": "This YAML config file has multiple errors. The required schema: server needs host (string) and port (integer 1-65535), database needs host (string), port (integer), and name (string), logging needs level (one of DEBUG/INFO/WARN/ERROR) and file (string).\n\nBroken config:\n\nserver:\n  host: \"0.0.0.0\"\n  port: eighty\n\ndatabase:\n    name: \"myapp\"\n  port: 5432\n\nlogging:\n  level: \"INFO\"\n  file: \"/var/log/app.log\"\n\nFind ALL errors (there are at least 3). Reply as strict JSON with keys:\n- errors: array of objects with {error_type, description}\n- fixed_config: the corrected YAML as a single string\n\nNo markdown, just JSON."
+        }
+      ],
+      "checks": [
+        {
+          "type": "json_schema",
+          "step": 0,
+          "schema": {
+            "type": "object",
+            "required": ["errors", "fixed_config"],
+            "properties": {
+              "errors": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["error_type", "description"],
+                  "properties": {
+                    "error_type": {"type": "string"},
+                    "description": {"type": "string"}
+                  }
+                }
+              },
+              "fixed_config": {"type": "string"}
+            }
+          }
+        },
+        {"type": "json_array_length", "step": 0, "pointer": "/errors", "min": 3},
+        {"type": "json_pointer_contains", "step": 0, "pointer": "/fixed_config", "text": "80", "case_sensitive": true},
+        {"type": "json_pointer_contains", "step": 0, "pointer": "/fixed_config", "text": "host", "case_sensitive": true},
+        {
+          "type": "llm_judge",
+          "step": 0,
+          "rubric": "The agent must find at least 3 errors: (1) port value 'eighty' is a string, not a valid integer — should be 80. (2) Inconsistent indentation under 'database' — 'name' has 4 spaces but 'port' has 2, making it invalid YAML. (3) database.host is missing entirely (required by schema). The fixed YAML should resolve all three. Score 0 if fewer than 3 distinct errors identified.",
+          "min_score": 0.6
+        }
+      ]
+    },
+    {
+      "id": "bug_identification_negative_rounding",
+      "description": "Identify a subtle rounding bug in Python code given failing test output.",
+      "steps": [
+        {
+          "type": "user",
+          "name": "find_bug",
+          "input": "Here is a Python function and its test results:\n\ndef safe_round_down(n):\n    \"\"\"Round a number down to the nearest integer (toward negative infinity).\"\"\"\n    return int(n)\n\nTest results:\n  test_positive_integer ... PASSED     # safe_round_down(5) == 5\n  test_positive_float ... PASSED       # safe_round_down(3.7) == 3\n  test_zero ... PASSED                 # safe_round_down(0) == 0\n  test_negative_float ... FAILED       # safe_round_down(-2.3) expected -3, got -2\n\nIdentify the bug and fix it. Reply as strict JSON with keys:\n- bug_description: why int() is wrong here\n- correct_implementation: the fixed function as a string\n- explanation: why the fix works for negative numbers\n\nNo markdown, just JSON."
+        }
+      ],
+      "checks": [
+        {
+          "type": "json_schema",
+          "step": 0,
+          "schema": {
+            "type": "object",
+            "required": ["bug_description", "correct_implementation", "explanation"],
+            "properties": {
+              "bug_description": {"type": "string"},
+              "correct_implementation": {"type": "string"},
+              "explanation": {"type": "string"}
+            }
+          }
+        },
+        {"type": "json_pointer_contains", "step": 0, "pointer": "/correct_implementation", "text": "floor", "case_sensitive": false},
+        {
+          "type": "llm_judge",
+          "step": 0,
+          "rubric": "The agent must identify that int() truncates toward zero (not toward negative infinity), so int(-2.3) = -2 instead of -3. The fix should use math.floor() which rounds toward negative infinity. The explanation must clearly distinguish truncation from floor for negative numbers. Score 0 if the agent doesn't mention the truncation vs floor distinction.",
+          "min_score": 0.7
+        }
+      ]
+    }
+  ]
+}

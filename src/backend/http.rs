@@ -114,11 +114,15 @@ impl AgentBackend for HttpBackend {
             .unwrap_or_default()
             .to_string();
 
+        // Try to parse the agent's output_text as JSON so that json_pointer
+        // checks operate on the agent's response rather than the HTTP wrapper.
+        let agent_json = serde_json::from_str::<serde_json::Value>(&output_text).ok();
+
         Ok(SendResponse {
             output_text,
             raw_stdout: resp_str,
             raw_stderr: String::new(),
-            json: Some(json),
+            json: agent_json.or(Some(json)),
             duration,
             exit_code: None,
         })
