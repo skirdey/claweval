@@ -1,0 +1,122 @@
+{
+  "name": "matrix_browser_install",
+  "description": "Tests agent ability to install a headless browser, navigate pages, take screenshots, and handle JavaScript-rendered content.",
+  "backend": {
+    "type": "http",
+    "url": "http://localhost:5000/chat"
+  },
+  "global_repeats": 1,
+  "scoring_class": "advanced",
+  "capability_tags": ["advanced", "browser", "install", "tool_use"],
+  "episodes": [
+    {
+      "id": "browser_install_and_verify",
+      "description": "Install a headless browser and verify it runs by printing its version.",
+      "vars": {
+        "agent_container": "claweval-openclaw"
+      },
+      "steps": [
+        {
+          "type": "user",
+          "input": "Install a headless browser in your environment. You can use Chromium via Playwright (npx playwright install --with-deps chromium), Puppeteer, or apt-get install chromium. Once installed, run the browser with a --version flag to confirm it works. Reply with ONLY the version string, e.g. 'Chromium 120.0.6099.109'.",
+          "name": "ask_install"
+        },
+        {
+          "type": "exec",
+          "command": "docker",
+          "args": ["exec", "{{agent_container}}", "sh", "-c", "which chromium || which chromium-browser || which google-chrome || find /root -name chrome -type f 2>/dev/null | head -1 || echo NOT_FOUND"],
+          "name": "verify_binary"
+        }
+      ],
+      "checks": [
+        {"type": "regex", "step": 0, "pattern": "(?i)(chrom(e|ium)|headless).*\\d+\\.\\d+"},
+        {"type": "not_contains", "step": 1, "text": "NOT_FOUND"},
+        {"type": "latency_under_ms", "step": 0, "max_ms": 180000}
+      ]
+    },
+    {
+      "id": "browser_screenshot_upload",
+      "description": "Navigate to a known page with a headless browser, take a screenshot, and upload it to the oracle.",
+      "vars": {
+        "agent_container": "claweval-openclaw"
+      },
+      "setup": [
+        {
+          "type": "http_probe",
+          "method": "DELETE",
+          "url": "http://localhost:5010/uploads/browser_shot_1"
+        }
+      ],
+      "steps": [
+        {
+          "type": "user",
+          "input": "Using a headless browser, navigate to http://oracle-sink:5010/fixtures/browser/target_page and take a full-page screenshot. Save the screenshot to /tmp/screenshot.png. Then upload it by running: curl -s -X POST --data-binary @/tmp/screenshot.png -H 'Content-Type: image/png' http://oracle-sink:5010/uploads/browser_shot_1 . Reply with the JSON response from the upload endpoint.",
+          "name": "screenshot_and_upload"
+        },
+        {
+          "type": "poll",
+          "interval_ms": 2000,
+          "timeout_ms": 90000,
+          "probe": {
+            "type": "http_probe",
+            "method": "GET",
+            "url": "http://localhost:5010/uploads/browser_shot_1"
+          },
+          "until": {"type": "json_pointer_equals", "pointer": "/ok", "expected": true},
+          "name": "poll_upload"
+        },
+        {
+          "type": "exec",
+          "command": "docker",
+          "args": ["exec", "{{agent_container}}", "stat", "-c", "%s", "/tmp/screenshot.png"],
+          "name": "check_file_size"
+        }
+      ],
+      "checks": [
+        {"type": "contains", "step": 0, "text": "ok", "case_sensitive": false},
+        {"type": "json_pointer_exists", "step": 1, "pointer": "/sha256"},
+        {"type": "json_pointer_exists", "step": 1, "pointer": "/size"},
+        {"type": "regex", "step": 2, "pattern": "^[0-9]+$"},
+        {"type": "latency_under_ms", "step": 0, "max_ms": 120000}
+      ]
+    },
+    {
+      "id": "browser_js_challenge",
+      "description": "Navigate to a page that reveals a token via JavaScript after a delay. Requires a real browser with JS execution.",
+      "vars": {
+        "agent_container": "claweval-openclaw"
+      },
+      "setup": [
+        {
+          "type": "http_probe",
+          "method": "DELETE",
+          "url": "http://localhost:5010/uploads/js_challenge_shot"
+        }
+      ],
+      "steps": [
+        {
+          "type": "user",
+          "input": "Using a headless browser (not curl or HTTP fetch), navigate to http://oracle-sink:5010/fixtures/browser/js_challenge . This page uses JavaScript to reveal a hidden token after a short delay. Wait for the token to become visible in the DOM, then: 1) Take a screenshot and upload it via: curl -s -X POST --data-binary @/tmp/js_screenshot.png -H 'Content-Type: image/png' http://oracle-sink:5010/uploads/js_challenge_shot 2) Reply with ONLY the revealed token text, nothing else.",
+          "name": "js_challenge"
+        },
+        {
+          "type": "poll",
+          "interval_ms": 2000,
+          "timeout_ms": 90000,
+          "probe": {
+            "type": "http_probe",
+            "method": "GET",
+            "url": "http://localhost:5010/uploads/js_challenge_shot"
+          },
+          "until": {"type": "json_pointer_equals", "pointer": "/ok", "expected": true},
+          "name": "poll_screenshot"
+        }
+      ],
+      "checks": [
+        {"type": "contains", "step": 0, "text": "JSTOKEN-CLAWEVAL-9981"},
+        {"type": "json_pointer_exists", "step": 1, "pointer": "/sha256"},
+        {"type": "latency_under_ms", "step": 0, "max_ms": 180000}
+      ]
+    }
+  ]
+}
